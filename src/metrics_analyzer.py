@@ -199,7 +199,9 @@ class QSOMetrics:
             return {
                 'total_hours': 0.0,
                 'overall_rate': 0.0,
-                'gaps': []
+                'gaps': [],
+                'hourly_rates': [],
+                'operator_sessions': {}
             }
         
         # Get all times and sort them
@@ -208,7 +210,9 @@ class QSOMetrics:
             return {
                 'total_hours': 0.0,
                 'overall_rate': 0.0,
-                'gaps': []
+                'gaps': [],
+                'hourly_rates': [],
+                'operator_sessions': {}
             }
         
         times.sort()
@@ -224,14 +228,173 @@ class QSOMetrics:
         # Find gaps > 15 minutes
         gaps = QSOMetrics._find_silent_periods(times)
         
+        # Calculate hourly rates
+        hourly_rates = QSOMetrics._calculate_hourly_rates(qsos)
+        
+        # Calculate operator sessions
+        operator_sessions = QSOMetrics._calculate_operator_sessions(qsos)
+        
         return {
             'total_hours': total_hours,
             'overall_rate': overall_rate,
             'gaps': gaps,
             'start_time': start_time,
-            'end_time': end_time
+            'end_time': end_time,
+            'hourly_rates': hourly_rates,
+            'operator_sessions': operator_sessions
         }
     
+    @staticmethod
+    def _calculate_hourly_rates(qsos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Calculate QSO rates for each hour in the log.
+        
+        Args:
+            qsos: List of QSO records
+            
+        Returns:
+            List of hourly rate dictionaries with hour and qso_count
+        """
+        if not qsos:
+            return []
+        
+        # Group QSOs by hour
+        hourly_counts = defaultdict(int)
+        
+        for qso in qsos:
+            if qso['time'] is not None:
+                time_str = f"{qso['time']:06d}"
+                hour = int(time_str[:2])
+                hourly_counts[hour] += 1
+        
+        # Convert to sorted list
+        hourly_rates = []
+        for hour in sorted(hourly_counts.keys()):
+            hourly_rates.append({
+                'hour': hour,
+                'qso_count': hourly_counts[hour]
+            })
+        
+        return hourly_rates
+
+    @staticmethod
+    def _calculate_operator_sessions(qsos: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Calculate operator sessions including sign-in/sign-out times and accumulated time.
+        
+        Args:
+            qsos: List of QSO records
+            
+        Returns:
+            Dictionary with operator session information
+        """
+        if not qsos:
+            return {}
+        
+        # Sort QSOs by time
+        sorted_qsos = sorted([qso for qso in qsos if qso['time'] is not None], 
+                           key=lambda x: x['time'])
+        
+        operator_sessions = defaultdict(lambda: {
+            'sessions': [],
+            'total_minutes': 0,
+            'first_qso': None,
+            'last_qso': None,
+            'session_count': 0
+        })
+        
+        if not sorted_qsos:
+            return {}
+        
+        # Track current session for each operator
+        current_sessions = {}
+        
+        for i, qso in enumerate(sorted_qsos):
+            operator = qso.get('operator', 'UNKNOWN')
+            current_time = qso['time']
+            
+            # Initialize operator data if first time seeing them
+            if operator_sessions[operator]['first_qso'] is None:
+                operator_sessions[operator]['first_qso'] = current_time
+            
+            operator_sessions[operator]['last_qso'] = current_time
+            
+            # Check if this is a new session for this operator
+            if operator not in current_sessions:
+                # Start new session
+                current_sessions[operator] = {
+                    'start_time': current_time,
+                    'last_qso_time': current_time
+                }
+            else:
+                # Update existing session
+                current_sessions[operator]['last_qso_time'] = current_time
+            
+            # Look ahead to see if there's a gap or operator change
+            if i < len(sorted_qsos) - 1:
+                next_qso = sorted_qsos[i + 1]
+                next_operator = next_qso.get('operator', 'UNKNOWN')
+                next_time = next_qso['time']
+                
+                # Calculate gap between current and next QSO
+                gap_minutes = QSOMetrics._calculate_time_gap_minutes(current_time, next_time)
+                
+                # End session if gap > 30 minutes or operator changes
+                if gap_minutes > 30 or next_operator != operator:
+                    # End current session
+                    session = current_sessions[operator]
+                    session_duration = QSOMetrics._calculate_time_gap_minutes(
+                        session['start_time'], session['last_qso_time'])
+                    
+                    operator_sessions[operator]['sessions'].append({
+                        'start_time': session['start_time'],
+                        'end_time': session['last_qso_time'],
+                        'duration_minutes': session_duration
+                    })
+                    
+                    operator_sessions[operator]['total_minutes'] += session_duration
+                    operator_sessions[operator]['session_count'] += 1
+                    
+                    # Remove from current sessions
+                    del current_sessions[operator]
+            else:
+                # This is the last QSO, end any remaining sessions
+                for op, session in current_sessions.items():
+                    session_duration = QSOMetrics._calculate_time_gap_minutes(
+                        session['start_time'], session['last_qso_time'])
+                    
+                    operator_sessions[op]['sessions'].append({
+                        'start_time': session['start_time'],
+                        'end_time': session['last_qso_time'],
+                        'duration_minutes': session_duration
+                    })
+                    
+                    operator_sessions[op]['total_minutes'] += session_duration
+                    operator_sessions[op]['session_count'] += 1
+        
+        return dict(operator_sessions)
+    
+    @staticmethod
+    def _calculate_time_gap_minutes(time1: int, time2: int) -> int:
+        """
+        Calculate gap in minutes between two HHMMSS times.
+        
+        Args:
+            time1: First time in HHMMSS format
+            time2: Second time in HHMMSS format
+            
+        Returns:
+            Gap in minutes (always positive)
+        """
+        minutes1 = QSOMetrics._time_to_minutes(time1)
+        minutes2 = QSOMetrics._time_to_minutes(time2)
+        
+        # Handle day rollover
+        if minutes2 < minutes1:
+            minutes2 += 24 * 60
+        
+        return abs(minutes2 - minutes1)
+
     @staticmethod
     def _find_silent_periods(times: List[int], min_gap_minutes: int = 15) -> List[Dict[str, Any]]:
         """
@@ -328,15 +491,60 @@ class QSOMetrics:
         report.append("-" * 40)
         report.append(f"Total Log Duration: {log_stats['total_hours']:.1f} hours")
         report.append(f"Overall QSO Rate: {log_stats['overall_rate']:.1f} QSOs/hour")
+        
+        # Show all gaps
         if log_stats['gaps']:
-            report.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])}")
-            for i, gap in enumerate(log_stats['gaps'][:5], 1):  # Show first 5 gaps
+            total_silent_minutes = sum(gap['duration_min'] for gap in log_stats['gaps'])
+            total_silent_hours = total_silent_minutes / 60.0
+            report.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])} totaling {total_silent_hours:.1f} hours")
+            for i, gap in enumerate(log_stats['gaps'], 1):
                 report.append(f"  Gap {i}: {gap['duration_min']:.0f} minutes "
                             f"({QSOMetrics._format_time(gap['start'])} - {QSOMetrics._format_time(gap['end'])})")
-            if len(log_stats['gaps']) > 5:
-                report.append(f"  ... and {len(log_stats['gaps']) - 5} more gaps")
         else:
             report.append("Silent Periods (>15 min): None")
+        
+        # Add hourly rates
+        if log_stats['hourly_rates']:
+            report.append("")
+            report.append("HOURLY QSO RATES:")
+            report.append("-" * 40)
+            for hour_data in log_stats['hourly_rates']:
+                hour = hour_data['hour']
+                count = hour_data['qso_count']
+                report.append(f"  {hour:02d}:00-{hour:02d}:59: {count} QSOs")
+        
+        # Add operator sessions
+        if log_stats['operator_sessions']:
+            report.append("")
+            report.append("OPERATOR SESSIONS:")
+            report.append("-" * 40)
+            for operator, session_data in sorted(log_stats['operator_sessions'].items()):
+                total_hours = session_data['total_minutes'] / 60.0
+                report.append(f"Operator: {operator}")
+                report.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions)")
+                report.append(f"  First QSO: {QSOMetrics._format_time(session_data['first_qso'])}")
+                report.append(f"  Last QSO: {QSOMetrics._format_time(session_data['last_qso'])}")
+                
+                # Show individual sessions
+                if session_data['sessions']:
+                    report.append("  Sessions:")
+                    for i, session in enumerate(session_data['sessions'], 1):
+                        duration_hours = session['duration_minutes'] / 60.0
+                        report.append(f"    {i}. {QSOMetrics._format_time(session['start_time'])} - "
+                                    f"{QSOMetrics._format_time(session['end_time'])} "
+                                    f"({duration_hours:.1f}h)")
+                report.append("")
+            
+            # Add total operator time summary
+            total_operator_minutes = sum(session_data['total_minutes'] 
+                                       for session_data in log_stats['operator_sessions'].values())
+            total_operator_hours = total_operator_minutes / 60.0
+            total_sessions = sum(session_data['session_count'] 
+                               for session_data in log_stats['operator_sessions'].values())
+            
+            report.append("SUMMARY:")
+            report.append(f"  Total Operator Time: {total_operator_hours:.1f} hours across {total_sessions} sessions")
+        
         report.append("")
         
         report.append("OPERATOR STATISTICS:")

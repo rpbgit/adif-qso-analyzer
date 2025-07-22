@@ -121,3 +121,50 @@ class TestQSOMetrics:
         assert "Run:" in report
         assert "S&P:" in report
         assert "% of total)" in report  # Check for contribution percentage
+    
+    def test_calculate_hourly_rates(self) -> None:
+        """Test hourly QSO rate calculation."""
+        qsos = [
+            {'freq': 14.200, 'band': '20M', 'time': 120000, 'operator': 'K1ABC'},  # 12:00
+            {'freq': 14.201, 'band': '20M', 'time': 121500, 'operator': 'K1ABC'},  # 12:15
+            {'freq': 14.202, 'band': '20M', 'time': 130000, 'operator': 'K2DEF'},  # 13:00
+            {'freq': 14.203, 'band': '20M', 'time': 130500, 'operator': 'K2DEF'}   # 13:05
+        ]
+        result = QSOMetrics._calculate_hourly_rates(qsos)
+        
+        # Should have 2 hours with data
+        assert len(result) == 2
+        
+        # Hour 12 should have 2 QSOs
+        hour_12 = next((h for h in result if h['hour'] == 12), None)
+        assert hour_12 is not None
+        assert hour_12['qso_count'] == 2
+        
+        # Hour 13 should have 2 QSOs
+        hour_13 = next((h for h in result if h['hour'] == 13), None)
+        assert hour_13 is not None
+        assert hour_13['qso_count'] == 2
+    
+    def test_calculate_operator_sessions(self) -> None:
+        """Test operator session calculation."""
+        qsos = [
+            {'freq': 14.200, 'band': '20M', 'time': 120000, 'operator': 'K1ABC'},  # 12:00
+            {'freq': 14.201, 'band': '20M', 'time': 120500, 'operator': 'K1ABC'},  # 12:05
+            {'freq': 14.202, 'band': '20M', 'time': 130000, 'operator': 'K2DEF'},  # 13:00 (different op)
+            {'freq': 14.203, 'band': '20M', 'time': 140000, 'operator': 'K1ABC'},  # 14:00 (K1ABC returns after gap)
+        ]
+        result = QSOMetrics._calculate_operator_sessions(qsos)
+        
+        # Should have both operators
+        assert 'K1ABC' in result
+        assert 'K2DEF' in result
+        
+        # K1ABC should have 2 sessions due to the gap
+        assert result['K1ABC']['session_count'] == 2
+        assert result['K1ABC']['first_qso'] == 120000
+        assert result['K1ABC']['last_qso'] == 140000
+        
+        # K2DEF should have 1 session
+        assert result['K2DEF']['session_count'] == 1
+        assert result['K2DEF']['first_qso'] == 130000
+        assert result['K2DEF']['last_qso'] == 130000
