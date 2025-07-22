@@ -66,6 +66,13 @@ Operator: 9ZV
     3. 06:04 - 09:14 (3.2h)
     4. 18:12 - 19:12 (1.0h)
 
+Operator: KA9I 
+  Operating Time: 1.4 hours (1 sessions)
+  First QSO: 14:20
+  Last QSO: 15:42
+  Sessions:
+    1. 14:20 - 15:42 (1.4h)
+
 Operator: UGX 
   Operating Time: 7.8 hours (3 sessions)
   First QSO: 00:07
@@ -76,12 +83,11 @@ Operator: UGX
     3. 19:19 - 23:03 (3.7h)
 
 Operator: VGO 
-  Operating Time: 4.3 hours (2 sessions)
+  Operating Time: 2.9 hours (1 sessions)
   First QSO: 10:18
-  Last QSO: 15:42
+  Last QSO: 13:14
   Sessions:
     1. 10:18 - 13:14 (2.9h)
-    2. 14:20 - 15:42 (1.4h)
 
 SUMMARY:
   Total Operator Time: 18.6 hours across 9 sessions
@@ -94,6 +100,12 @@ Operator: 9ZV
   Peak Rate: 62 QSOs/hour
   Run: 45.3% | S&P: 54.7%
 
+Operator: KA9I 
+  QSO Count: 50 (7.0% of total)
+  Average Rate: 36.6 QSOs/hour
+  Peak Rate: 38 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
 Operator: UGX 
   QSO Count: 289 (40.5% of total)
   Average Rate: 12.6 QSOs/hour
@@ -101,7 +113,7 @@ Operator: UGX
   Run: 78.7% | S&P: 21.3%
 
 Operator: VGO 
-  QSO Count: 146 (20.5% of total)
-  Average Rate: 27.0 QSOs/hour
+  QSO Count: 96 (13.5% of total)
+  Average Rate: 32.7 QSOs/hour
   Peak Rate: 40 QSOs/hour
-  Run: 34.5% | S&P: 65.5%
+  Run: 0.0% | S&P: 100.0%
