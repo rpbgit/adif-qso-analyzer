@@ -16,6 +16,9 @@ pyinstaller>=5.13.0
 auto-py-to-exe>=2.40.0
 cx-freeze>=6.15.0
 
+# Debugging
+debugpy>=1.6.0
+
 # Optional: Add more packages as needed
 # numpy==1.24.3
 # pandas==2.0.3

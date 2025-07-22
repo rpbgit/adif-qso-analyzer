@@ -17,7 +17,9 @@ from metrics_analyzer import QSOMetrics
 
 def main() -> None:
     """Main function for ADIF analysis."""
-    import debugpy; debugpy.breakpoint()  # Force debugger to stop here
+    # Remove this line - use VS Code breakpoints instead
+    # import debugpy; debugpy.breakpoint()  # Force debugger to stop here
+    
     # Check if filename provided as command line argument
     if len(sys.argv) > 1:
         filename = sys.argv[1]
