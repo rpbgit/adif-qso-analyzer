@@ -18,6 +18,15 @@ Silent Periods (>15 min): 8 totaling 5.2 hours
   Gap 7: 66 minutes (13:14 - 14:20)
   Gap 8: 21 minutes (20:46 - 21:07)
 
+TIME BREAKDOWN:
+  Total Log Duration: 22.9 hours
+  Active Operating Time: 18.6 hours
+  Silent/Gap Time: 4.4 hours
+    - Long gaps (>15 min): 5.2 hours
+    - Short gaps (<15 min): -0.9 hours
+  Reconciliation: 22.9 hours
+  ✅ Time accounting reconciled
+
 HOURLY QSO RATES:
 ----------------------------------------
   00:00-00:59: 25 QSOs

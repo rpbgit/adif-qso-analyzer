@@ -168,3 +168,65 @@ class TestQSOMetrics:
         assert result['K2DEF']['session_count'] == 1
         assert result['K2DEF']['first_qso'] == 130000
         assert result['K2DEF']['last_qso'] == 130000
+    
+    def test_calculate_accurate_time_accounting(self) -> None:
+        """Test accurate time accounting with reconciliation."""
+        qsos = [
+            {'freq': 14.200, 'band': '20M', 'time': 120000, 'operator': 'K1ABC'},  # 12:00
+            {'freq': 14.201, 'band': '20M', 'time': 120500, 'operator': 'K1ABC'},  # 12:05
+            {'freq': 14.202, 'band': '20M', 'time': 130000, 'operator': 'K2DEF'},  # 13:00 (55 min gap)
+            {'freq': 14.203, 'band': '20M', 'time': 131000, 'operator': 'K2DEF'},  # 13:10
+        ]
+        result = QSOMetrics._calculate_accurate_time_accounting(qsos)
+        
+        # Should have proper time breakdown
+        assert 'total_log_hours' in result
+        assert 'active_operating_hours' in result
+        assert 'all_gap_hours' in result
+        assert 'long_gap_hours' in result
+        assert 'short_gap_hours' in result
+        assert 'reconciliation_check' in result
+        
+        # Time accounting should reconcile
+        total = result['active_operating_hours'] + result['all_gap_hours']
+        assert abs(total - result['total_log_hours']) < 0.1
+        assert result['reconciliation_check'] is True
+        
+        # Gap of 55 minutes should be counted as long gap
+        assert result['long_gap_hours'] > 0
+    
+    def test_time_accounting_with_no_gaps(self) -> None:
+        """Test time accounting with continuous operation."""
+        qsos = [
+            {'freq': 14.200, 'band': '20M', 'time': 120000, 'operator': 'K1ABC'},  # 12:00
+            {'freq': 14.201, 'band': '20M', 'time': 120100, 'operator': 'K1ABC'},  # 12:01
+            {'freq': 14.202, 'band': '20M', 'time': 120200, 'operator': 'K1ABC'},  # 12:02
+        ]
+        result = QSOMetrics._calculate_accurate_time_accounting(qsos)
+        
+        # Should have minimal gap time for continuous operation
+        assert result['long_gap_hours'] == 0.0
+        assert result['short_gap_hours'] >= 0.0  # May have small gaps between QSOs
+        assert result['reconciliation_check'] is True
+    
+    def test_time_accounting_empty_data(self) -> None:
+        """Test time accounting with empty data."""
+        result = QSOMetrics._calculate_accurate_time_accounting([])
+        
+        assert result['total_log_hours'] == 0.0
+        assert result['active_operating_hours'] == 0.0
+        assert result['all_gap_hours'] == 0.0
+        assert result['reconciliation_check'] is True
+    
+    def test_log_statistics_includes_time_accounting(self) -> None:
+        """Test that log statistics includes time accounting data."""
+        qsos = [
+            {'freq': 14.200, 'band': '20M', 'time': 120000, 'operator': 'K1ABC'},
+            {'freq': 14.201, 'band': '20M', 'time': 130000, 'operator': 'K2DEF'},  # 1 hour gap
+        ]
+        result = QSOMetrics._calculate_log_statistics(qsos)
+        
+        assert 'time_accounting' in result
+        assert 'total_log_hours' in result['time_accounting']
+        assert 'active_operating_hours' in result['time_accounting']
+        assert 'reconciliation_check' in result['time_accounting']

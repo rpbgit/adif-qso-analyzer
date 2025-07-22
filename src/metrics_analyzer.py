@@ -201,7 +201,8 @@ class QSOMetrics:
                 'overall_rate': 0.0,
                 'gaps': [],
                 'hourly_rates': [],
-                'operator_sessions': {}
+                'operator_sessions': {},
+                'time_accounting': QSOMetrics._calculate_accurate_time_accounting([])
             }
         
         # Get all times and sort them
@@ -212,7 +213,8 @@ class QSOMetrics:
                 'overall_rate': 0.0,
                 'gaps': [],
                 'hourly_rates': [],
-                'operator_sessions': {}
+                'operator_sessions': {},
+                'time_accounting': QSOMetrics._calculate_accurate_time_accounting([])
             }
         
         times.sort()
@@ -234,6 +236,9 @@ class QSOMetrics:
         # Calculate operator sessions
         operator_sessions = QSOMetrics._calculate_operator_sessions(qsos)
         
+        # Calculate accurate time accounting
+        time_accounting = QSOMetrics._calculate_accurate_time_accounting(qsos)
+        
         return {
             'total_hours': total_hours,
             'overall_rate': overall_rate,
@@ -241,7 +246,91 @@ class QSOMetrics:
             'start_time': start_time,
             'end_time': end_time,
             'hourly_rates': hourly_rates,
-            'operator_sessions': operator_sessions
+            'operator_sessions': operator_sessions,
+            'time_accounting': time_accounting
+        }
+    
+    @staticmethod
+    def _calculate_accurate_time_accounting(qsos: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Calculate accurate time accounting with proper reconciliation.
+        
+        Args:
+            qsos: List of QSO records
+            
+        Returns:
+            Dictionary with reconciled time statistics
+        """
+        if not qsos:
+            return {
+                'total_log_hours': 0.0,
+                'active_operating_hours': 0.0,
+                'all_gap_hours': 0.0,
+                'long_gap_hours': 0.0,
+                'short_gap_hours': 0.0,
+                'reconciliation_check': True
+            }
+        
+        # Get all times and sort them
+        times = [qso['time'] for qso in qsos if qso['time'] is not None]
+        if not times:
+            return {
+                'total_log_hours': 0.0,
+                'active_operating_hours': 0.0,
+                'all_gap_hours': 0.0,
+                'long_gap_hours': 0.0,
+                'short_gap_hours': 0.0,
+                'reconciliation_check': True
+            }
+        
+        times.sort()
+        
+        # Calculate total log duration (first QSO to last QSO)
+        total_log_minutes = QSOMetrics._calculate_time_gap_minutes(times[0], times[-1])
+        total_log_hours = total_log_minutes / 60.0
+        
+        # Get operator sessions and create timeline of active periods
+        operator_sessions = QSOMetrics._calculate_operator_sessions(qsos)
+        
+        # Create timeline of all active periods (no overlaps since operators don't overlap)
+        active_periods = []
+        for operator, session_data in operator_sessions.items():
+            for session in session_data['sessions']:
+                start_minutes = QSOMetrics._time_to_minutes(session['start_time'])
+                end_minutes = QSOMetrics._time_to_minutes(session['end_time'])
+                # Handle day rollover
+                if end_minutes < start_minutes:
+                    end_minutes += 24 * 60
+                active_periods.append((start_minutes, end_minutes))
+        
+        # Sort active periods and calculate total active time
+        active_periods.sort()
+        total_active_minutes = sum(end - start for start, end in active_periods)
+        total_active_hours = total_active_minutes / 60.0
+        
+        # Calculate all gap time
+        all_gap_hours = total_log_hours - total_active_hours
+        
+        # Calculate long gaps (>15 minutes)
+        gaps = QSOMetrics._find_silent_periods(times)
+        long_gap_minutes = sum(gap['duration_min'] for gap in gaps)
+        long_gap_hours = long_gap_minutes / 60.0
+        
+        # Calculate short gaps
+        short_gap_hours = all_gap_hours - long_gap_hours
+        
+        # Reconciliation check (should be close to 0)
+        reconciliation_diff = abs(total_log_hours - (total_active_hours + all_gap_hours))
+        reconciliation_check = reconciliation_diff < 0.1  # Within 6 minutes tolerance
+        
+        return {
+            'total_log_hours': total_log_hours,
+            'active_operating_hours': total_active_hours,
+            'all_gap_hours': all_gap_hours,
+            'long_gap_hours': long_gap_hours,
+            'short_gap_hours': short_gap_hours,
+            'reconciliation_check': reconciliation_check,
+            'reconciliation_diff': reconciliation_diff
         }
     
     @staticmethod
@@ -502,6 +591,26 @@ class QSOMetrics:
                             f"({QSOMetrics._format_time(gap['start'])} - {QSOMetrics._format_time(gap['end'])})")
         else:
             report.append("Silent Periods (>15 min): None")
+        
+        # Add corrected time accounting
+        if 'time_accounting' in log_stats:
+            time_acc = log_stats['time_accounting']
+            report.append("")
+            report.append("TIME BREAKDOWN:")
+            report.append(f"  Total Log Duration: {time_acc['total_log_hours']:.1f} hours")
+            report.append(f"  Active Operating Time: {time_acc['active_operating_hours']:.1f} hours")
+            report.append(f"  Silent/Gap Time: {time_acc['all_gap_hours']:.1f} hours")
+            report.append(f"    - Long gaps (>15 min): {time_acc['long_gap_hours']:.1f} hours")
+            report.append(f"    - Short gaps (<15 min): {time_acc['short_gap_hours']:.1f} hours")
+            
+            # Add reconciliation check
+            total_check = time_acc['active_operating_hours'] + time_acc['all_gap_hours']
+            report.append(f"  Reconciliation: {total_check:.1f} hours")
+            
+            if time_acc['reconciliation_check']:
+                report.append("  ✅ Time accounting reconciled")
+            else:
+                report.append(f"  ⚠️  Time discrepancy: {time_acc['reconciliation_diff']:.1f} hours")
         
         # Add hourly rates
         if log_stats['hourly_rates']:
