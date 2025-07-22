@@ -185,6 +185,103 @@ class QSOMetrics:
                 operator_stats[operator]['run_percentage'] = 100.0
     
     @staticmethod
+    def _calculate_log_statistics(qsos: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Calculate overall log statistics including duration and gaps.
+        
+        Args:
+            qsos: List of QSO records
+            
+        Returns:
+            Dictionary with log statistics
+        """
+        if not qsos:
+            return {
+                'total_hours': 0.0,
+                'overall_rate': 0.0,
+                'gaps': []
+            }
+        
+        # Get all times and sort them
+        times = [qso['time'] for qso in qsos if qso['time'] is not None]
+        if not times:
+            return {
+                'total_hours': 0.0,
+                'overall_rate': 0.0,
+                'gaps': []
+            }
+        
+        times.sort()
+        start_time = times[0]
+        end_time = times[-1]
+        
+        # Calculate total duration
+        total_hours = QSOMetrics._calculate_duration_hours(times)
+        
+        # Calculate overall rate
+        overall_rate = len(qsos) / total_hours if total_hours > 0 else 0.0
+        
+        # Find gaps > 15 minutes
+        gaps = QSOMetrics._find_silent_periods(times)
+        
+        return {
+            'total_hours': total_hours,
+            'overall_rate': overall_rate,
+            'gaps': gaps,
+            'start_time': start_time,
+            'end_time': end_time
+        }
+    
+    @staticmethod
+    def _find_silent_periods(times: List[int], min_gap_minutes: int = 15) -> List[Dict[str, Any]]:
+        """
+        Find periods with no QSO activity longer than specified threshold.
+        
+        Args:
+            times: List of times in HHMMSS format
+            min_gap_minutes: Minimum gap in minutes to consider as silent period
+            
+        Returns:
+            List of gap dictionaries with start, end, and duration information
+        """
+        gaps = []
+        
+        for i in range(len(times) - 1):
+            current_time = QSOMetrics._time_to_minutes(times[i])
+            next_time = QSOMetrics._time_to_minutes(times[i + 1])
+            
+            # Handle day rollover
+            if next_time < current_time:
+                next_time += 24 * 60
+            
+            gap_minutes = next_time - current_time
+            
+            if gap_minutes > min_gap_minutes:
+                gaps.append({
+                    'start': times[i],
+                    'end': times[i + 1],
+                    'duration_min': gap_minutes
+                })
+        
+        return gaps
+    
+    @staticmethod
+    def _format_time(time_hhmmss: int) -> str:
+        """
+        Format HHMMSS time for display.
+        
+        Args:
+            time_hhmmss: Time in HHMMSS format
+            
+        Returns:
+            Formatted time string (HH:MM)
+        """
+        time_str = f"{time_hhmmss:06d}"
+        hours = time_str[:2]
+        minutes = time_str[2:4]
+        return f"{hours}:{minutes}"
+    
+    @staticmethod
     def _time_to_minutes(time_hhmmss: int) -> int:
         """
         Convert HHMMSS time to minutes since midnight.
@@ -215,12 +312,31 @@ class QSOMetrics:
         operator_stats = QSOMetrics.calculate_qso_rates(qsos)
         total_qsos = len(qsos)
         
+        # Calculate overall log statistics
+        log_stats = QSOMetrics._calculate_log_statistics(qsos)
+        
         report = []
         report.append("=" * 60)
         report.append("QSO ANALYSIS SUMMARY REPORT")
         report.append("=" * 60)
         report.append(f"Total QSOs: {total_qsos}")
         report.append(f"S&P Percentage: {sp_percentage:.1f}%")
+        report.append("")
+        
+        # Add overall log statistics
+        report.append("LOG STATISTICS:")
+        report.append("-" * 40)
+        report.append(f"Total Log Duration: {log_stats['total_hours']:.1f} hours")
+        report.append(f"Overall QSO Rate: {log_stats['overall_rate']:.1f} QSOs/hour")
+        if log_stats['gaps']:
+            report.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])}")
+            for i, gap in enumerate(log_stats['gaps'][:5], 1):  # Show first 5 gaps
+                report.append(f"  Gap {i}: {gap['duration_min']:.0f} minutes "
+                            f"({QSOMetrics._format_time(gap['start'])} - {QSOMetrics._format_time(gap['end'])})")
+            if len(log_stats['gaps']) > 5:
+                report.append(f"  ... and {len(log_stats['gaps']) - 5} more gaps")
+        else:
+            report.append("Silent Periods (>15 min): None")
         report.append("")
         
         report.append("OPERATOR STATISTICS:")

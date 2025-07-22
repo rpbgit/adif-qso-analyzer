@@ -67,6 +67,39 @@ class TestQSOMetrics:
         assert result['K2DEF']['run_percentage'] == 0.0
         assert result['K2DEF']['sp_percentage'] == 100.0
     
+    def test_calculate_log_statistics(self) -> None:
+        """Test overall log statistics calculation."""
+        qsos = [
+            {'freq': 14.200, 'band': '20M', 'time': 120000, 'operator': 'K1ABC'},  # 12:00
+            {'freq': 14.201, 'band': '20M', 'time': 120500, 'operator': 'K1ABC'},  # 12:05
+            {'freq': 14.202, 'band': '20M', 'time': 122000, 'operator': 'K1ABC'},  # 12:20 (15 min gap)
+            {'freq': 14.203, 'band': '20M', 'time': 140000, 'operator': 'K1ABC'}   # 14:00 (100 min gap)
+        ]
+        
+        log_stats = QSOMetrics._calculate_log_statistics(qsos)
+        
+        assert log_stats['total_hours'] == 2.0  # 12:00 to 14:00 = 2 hours
+        assert log_stats['overall_rate'] == 2.0  # 4 QSOs / 2 hours
+        assert len(log_stats['gaps']) == 1  # Only one gap > 15 minutes (100 min gap)
+        assert log_stats['gaps'][0]['duration_min'] == 100
+    
+    def test_find_silent_periods(self) -> None:
+        """Test silent period detection."""
+        times = [120000, 120500, 122000, 140000]  # 12:00, 12:05, 12:20, 14:00
+        
+        gaps = QSOMetrics._find_silent_periods(times, min_gap_minutes=15)
+        
+        assert len(gaps) == 1  # Only the 100-minute gap should be detected
+        assert gaps[0]['start'] == 122000
+        assert gaps[0]['end'] == 140000
+        assert gaps[0]['duration_min'] == 100
+    
+    def test_format_time(self) -> None:
+        """Test time formatting utility."""
+        assert QSOMetrics._format_time(123456) == "12:34"
+        assert QSOMetrics._format_time(0) == "00:00"
+        assert QSOMetrics._format_time(235959) == "23:59"
+    
     def test_time_to_minutes_conversion(self) -> None:
         """Test time conversion utility."""
         assert QSOMetrics._time_to_minutes(123456) == 12 * 60 + 34

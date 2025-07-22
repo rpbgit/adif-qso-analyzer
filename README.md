@@ -9,6 +9,8 @@ A Python tool for analyzing ADIF (Amateur Data Interchange Format) files from ha
 - **Operator Statistics**: QSO counts and performance metrics per operator
 - **Run vs S&P Analysis**: Individual operator percentages for Run vs Search & Pounce
 - **Contribution Analysis**: Each operator's percentage contribution to total QSO count
+- **Log Duration Analysis**: Total contest time and overall QSO rate
+- **Silent Period Detection**: Identifies gaps >15 minutes without activity
 - **Comprehensive Reports**: Detailed analysis output with exportable results
 
 ## Project Structure
@@ -86,6 +88,18 @@ QSO ANALYSIS SUMMARY REPORT
 ============================================================
 Total QSOs: 713
 S&P Percentage: 43.7%
+
+LOG STATISTICS:
+----------------------------------------
+Total Log Duration: 22.9 hours
+Overall QSO Rate: 31.1 QSOs/hour
+Silent Periods (>15 min): 8
+  Gap 1: 21 minutes (01:36 - 01:57)
+  Gap 2: 42 minutes (03:08 - 03:50)
+  Gap 3: 57 minutes (05:07 - 06:04)
+  Gap 4: 18 minutes (06:51 - 07:09)
+  Gap 5: 25 minutes (08:14 - 08:39)
+  ... and 3 more gaps
 
 OPERATOR STATISTICS:
 ----------------------------------------
