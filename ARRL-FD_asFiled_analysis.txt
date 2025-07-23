@@ -1,0 +1,298 @@
+============================================================
+QSO ANALYSIS SUMMARY REPORT
+============================================================
+Total QSOs: 998
+S&P Percentage: 47.2%
+
+DATA QUALITY:
+----------------------------------------
+Frequency Coverage: 100.0%
+Estimated Frequencies: 285 QSOs
+STATUS: S&P analysis reliable
+
+LOG STATISTICS:
+----------------------------------------
+Total Log Duration: 23.6 hours
+Overall QSO Rate: 42.2 QSOs/hour
+Silent Periods (>15 min): 6 totaling 3.5 hours
+  Gap 1: 26 minutes (05:38 - 06:04)
+  Gap 2: 18 minutes (06:51 - 07:09)
+  Gap 3: 25 minutes (08:14 - 08:39)
+  Gap 4: 64 minutes (09:14 - 10:18)
+  Gap 5: 54 minutes (13:14 - 14:08)
+  Gap 6: 22 minutes (23:09 - 23:31)
+
+TIME BREAKDOWN:
+  Total Log Duration: 23.6 hours
+  Active Operating Time: 33.9 hours
+  Silent/Gap Time: -10.3 hours
+    - Long gaps (>15 min): 3.5 hours
+    - Short gaps (<15 min): -13.8 hours
+  Reconciliation: 23.6 hours
+  STATUS: Time accounting reconciled
+
+HOURLY QSO RATES:
+----------------------------------------
+  00:00-00:59: 51 QSOs
+  01:00-01:59: 59 QSOs
+  02:00-02:59: 106 QSOs
+  03:00-03:59: 48 QSOs
+  04:00-04:59: 74 QSOs
+  05:00-05:59: 20 QSOs
+  06:00-06:59: 41 QSOs
+  07:00-07:59: 27 QSOs
+  08:00-08:59: 23 QSOs
+  09:00-09:59: 3 QSOs
+  10:00-10:59: 26 QSOs
+  11:00-11:59: 32 QSOs
+  12:00-12:59: 29 QSOs
+  13:00-13:59: 9 QSOs
+  14:00-14:59: 41 QSOs
+  15:00-15:59: 44 QSOs
+  16:00-16:59: 48 QSOs
+  17:00-17:59: 54 QSOs
+  18:00-18:59: 49 QSOs
+  19:00-19:59: 46 QSOs
+  20:00-20:59: 58 QSOs
+  21:00-21:59: 47 QSOs
+  22:00-22:59: 58 QSOs
+  23:00-23:59: 5 QSOs
+
+OPERATOR SESSIONS:
+----------------------------------------
+Operator: 9ZV @ Station: HAL 9000
+  Operating Time: 5.8 hours (6 sessions)
+  First QSO: 02:04
+  Last QSO: 19:12
+  Sessions:
+    1. 02:04 - 03:08 (1.1h)
+    2. 03:50 - 05:07 (1.3h)
+    3. 06:04 - 06:51 (0.8h)
+    4. 07:09 - 08:14 (1.1h)
+    5. 08:39 - 09:14 (0.6h)
+    6. 18:12 - 19:12 (1.0h)
+
+Operator: AB9YW @ Station: John-PC
+  Operating Time: 0.1 hours (3 sessions)
+  First QSO: 00:14
+  Last QSO: 18:33
+  Sessions:
+    1. 00:14 - 00:14 (0.0h)
+    2. 00:45 - 00:50 (0.1h)
+    3. 18:31 - 18:33 (0.0h)
+
+Operator: K9MSG @ Station: Kirks-Ham-PC
+  Operating Time: 0.6 hours (1 sessions)
+  First QSO: 05:05
+  Last QSO: 05:38
+  Sessions:
+    1. 05:05 - 05:38 (0.6h)
+
+Operator: K9MSG @ Station: WinLink-Contests
+  Operating Time: 2.4 hours (1 sessions)
+  First QSO: 02:11
+  Last QSO: 04:36
+  Sessions:
+    1. 02:11 - 04:36 (2.4h)
+
+Operator: KC9VO @ Station: John-PC
+  Operating Time: 0.7 hours (3 sessions)
+  First QSO: 15:13
+  Last QSO: 16:33
+  Sessions:
+    1. 15:13 - 15:33 (0.3h)
+    2. 15:54 - 15:54 (0.0h)
+    3. 16:13 - 16:33 (0.3h)
+
+Operator: KD9REA @ Station: LAPTOP-5676VU57
+  Operating Time: 0.2 hours (4 sessions)
+  First QSO: 18:10
+  Last QSO: 20:37
+  Sessions:
+    1. 18:10 - 18:10 (0.0h)
+    2. 18:31 - 18:31 (0.0h)
+    3. 18:56 - 19:05 (0.1h)
+    4. 20:37 - 20:37 (0.0h)
+
+Operator: KD9ZBR @ Station: Jerome-Ideapad
+  Operating Time: 3.4 hours (8 sessions)
+  First QSO: 00:03
+  Last QSO: 23:09
+  Sessions:
+    1. 00:03 - 00:13 (0.2h)
+    2. 00:42 - 01:44 (1.0h)
+    3. 18:57 - 18:59 (0.0h)
+    4. 19:15 - 19:15 (0.0h)
+    5. 19:36 - 19:51 (0.2h)
+    6. 20:29 - 21:02 (0.6h)
+    7. 21:21 - 21:53 (0.5h)
+    8. 22:19 - 23:09 (0.8h)
+
+Operator: KG9R @ Station: WinLink-Contests
+  Operating Time: 7.4 hours (8 sessions)
+  First QSO: 00:10
+  Last QSO: 22:57
+  Sessions:
+    1. 00:10 - 02:05 (1.9h)
+    2. 14:24 - 15:16 (0.9h)
+    3. 15:32 - 16:01 (0.5h)
+    4. 16:32 - 17:39 (1.1h)
+    5. 18:29 - 18:54 (0.4h)
+    6. 19:33 - 21:18 (1.8h)
+    7. 21:39 - 21:50 (0.2h)
+    8. 22:16 - 22:57 (0.7h)
+
+Operator: Mr. Nobody @ Station: DESKTOP-I4HU6UO
+  Operating Time: 1.2 hours (6 sessions)
+  First QSO: 00:01
+  Last QSO: 21:18
+  Sessions:
+    1. 00:01 - 00:01 (0.0h)
+    2. 00:30 - 00:54 (0.4h)
+    3. 01:28 - 01:28 (0.0h)
+    4. 01:46 - 02:13 (0.5h)
+    5. 20:39 - 20:39 (0.0h)
+    6. 21:05 - 21:18 (0.2h)
+
+Operator: N9DMS @ Station: WinLink-Contests
+  Operating Time: 0.2 hours (2 sessions)
+  First QSO: 22:09
+  Last QSO: 23:39
+  Sessions:
+    1. 22:09 - 22:09 (0.0h)
+    2. 23:31 - 23:39 (0.1h)
+
+Operator: N9HRT @ Station: John-PC
+  Operating Time: 0.6 hours (4 sessions)
+  First QSO: 00:53
+  Last QSO: 02:58
+  Sessions:
+    1. 00:53 - 01:00 (0.1h)
+    2. 01:18 - 01:44 (0.4h)
+    3. 02:19 - 02:19 (0.0h)
+    4. 02:58 - 02:58 (0.0h)
+
+Operator: N9IHRT @ Station: John-PC
+  Operating Time: 0.3 hours (4 sessions)
+  First QSO: 03:44
+  Last QSO: 15:08
+  Sessions:
+    1. 03:44 - 03:44 (0.0h)
+    2. 14:08 - 14:20 (0.2h)
+    3. 14:44 - 14:48 (0.1h)
+    4. 15:08 - 15:08 (0.0h)
+
+Operator: N9IZU @ Station: John-PC
+  Operating Time: 0.0 hours (1 sessions)
+  First QSO: 03:02
+  Last QSO: 03:02
+  Sessions:
+    1. 03:02 - 03:02 (0.0h)
+
+Operator: UGX @ Station: HAL 9000
+  Operating Time: 7.1 hours (5 sessions)
+  First QSO: 00:07
+  Last QSO: 23:03
+  Sessions:
+    1. 00:07 - 01:36 (1.5h)
+    2. 01:57 - 02:02 (0.1h)
+    3. 15:50 - 17:57 (2.1h)
+    4. 19:19 - 20:46 (1.4h)
+    5. 21:07 - 23:03 (1.9h)
+
+Operator: VGO @ Station: HAL 9000
+  Operating Time: 4.3 hours (2 sessions)
+  First QSO: 10:18
+  Last QSO: 15:42
+  Sessions:
+    1. 10:18 - 13:14 (2.9h)
+    2. 14:20 - 15:42 (1.4h)
+
+SUMMARY:
+  Total Operator Time: 34.4 hours across 58 sessions
+
+OPERATOR STATISTICS:
+----------------------------------------
+Operator: 9ZV
+  QSO Count: 278 (27.9% of total)
+  Average Rate: 16.2 QSOs/hour
+  Peak Rate: 62 QSOs/hour
+  Run: 45.3% | S&P: 54.7%
+
+Operator: AB9YW
+  QSO Count: 5 (0.5% of total)
+  Average Rate: 0.3 QSOs/hour
+  Peak Rate: 3 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: K9MSG
+  QSO Count: 96 (9.6% of total)
+  Average Rate: 27.8 QSOs/hour
+  Peak Rate: 46 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: KC9VO
+  QSO Count: 9 (0.9% of total)
+  Average Rate: 6.8 QSOs/hour
+  Peak Rate: 6 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: KD9REA
+  QSO Count: 7 (0.7% of total)
+  Average Rate: 2.9 QSOs/hour
+  Peak Rate: 6 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: KD9ZBR
+  QSO Count: 47 (4.7% of total)
+  Average Rate: 2.0 QSOs/hour
+  Peak Rate: 11 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: KG9R
+  QSO Count: 81 (8.1% of total)
+  Average Rate: 3.6 QSOs/hour
+  Peak Rate: 14 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: Mr. Nobody
+  QSO Count: 15 (1.5% of total)
+  Average Rate: 0.7 QSOs/hour
+  Peak Rate: 6 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: N9DMS
+  QSO Count: 3 (0.3% of total)
+  Average Rate: 2.0 QSOs/hour
+  Peak Rate: 2 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: N9HRT
+  QSO Count: 11 (1.1% of total)
+  Average Rate: 5.3 QSOs/hour
+  Peak Rate: 9 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: N9IHRT
+  QSO Count: 10 (1.0% of total)
+  Average Rate: 0.9 QSOs/hour
+  Peak Rate: 9 QSOs/hour
+  Run: 100.0% | S&P: 0.0%
+
+Operator: N9IZU
+  QSO Count: 1 (0.1% of total)
+  Average Rate: 0.0 QSOs/hour
+  Peak Rate: 0 QSOs/hour
+  Run: 0.0% | S&P: 0.0%
+
+Operator: UGX
+  QSO Count: 289 (29.0% of total)
+  Average Rate: 12.6 QSOs/hour
+  Peak Rate: 52 QSOs/hour
+  Run: 78.7% | S&P: 21.3%
+
+Operator: VGO
+  QSO Count: 146 (14.6% of total)
+  Average Rate: 27.0 QSOs/hour
+  Peak Rate: 40 QSOs/hour
+  Run: 34.5% | S&P: 65.5%

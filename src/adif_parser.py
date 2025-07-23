@@ -133,9 +133,18 @@ class ADIFParser:
         if not operator or operator == "":
             operator = "Mr. Nobody"
         
-        # Extract station/computer name
-        station_match = re.search(r'<n3fjp_computername:(\d+)>([^<]+)', buffer, re.IGNORECASE)
-        station = station_match.group(2).strip() if station_match else None
+        # Extract station/computer name - try multiple field names
+        station = None
+        station_patterns = [
+            r'<n3fjp_computername:(\d+)>([^<]+)',     # N3FJP logging software
+            r'<app_n1mm_netbiosname:(\d+)>([^<]+)',   # N1MM+ logging software
+        ]
+        
+        for pattern in station_patterns:
+            station_match = re.search(pattern, buffer, re.IGNORECASE)
+            if station_match:
+                station = station_match.group(2).strip()
+                break
         
         # Use "HAL 9000" if station is None or empty
         if not station or station == "":

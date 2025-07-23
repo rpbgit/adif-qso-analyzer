@@ -7,7 +7,7 @@ S&P Percentage: 43.7%
 DATA QUALITY:
 ----------------------------------------
 Frequency Coverage: 100.0%
-✅ S&P analysis reliable
+STATUS: S&P analysis reliable
 
 LOG STATISTICS:
 ----------------------------------------
@@ -25,12 +25,12 @@ Silent Periods (>15 min): 8 totaling 5.2 hours
 
 TIME BREAKDOWN:
   Total Log Duration: 22.9 hours
-  Active Operating Time: 18.6 hours
-  Silent/Gap Time: 4.4 hours
+  Active Operating Time: 17.2 hours
+  Silent/Gap Time: 5.8 hours
     - Long gaps (>15 min): 5.2 hours
-    - Short gaps (<15 min): -0.9 hours
+    - Short gaps (<15 min): 0.5 hours
   Reconciliation: 22.9 hours
-  ✅ Time accounting reconciled
+  STATUS: Time accounting reconciled
 
 HOURLY QSO RATES:
 ----------------------------------------
@@ -61,33 +61,37 @@ HOURLY QSO RATES:
 
 OPERATOR SESSIONS:
 ----------------------------------------
-Operator: 9ZV
-  Operating Time: 6.5 hours (4 sessions)
+Operator: 9ZV @ Station: HAL 9000
+  Operating Time: 5.8 hours (6 sessions)
   First QSO: 02:04
   Last QSO: 19:12
   Sessions:
     1. 02:04 - 03:08 (1.1h)
     2. 03:50 - 05:07 (1.3h)
-    3. 06:04 - 09:14 (3.2h)
-    4. 18:12 - 19:12 (1.0h)
+    3. 06:04 - 06:51 (0.8h)
+    4. 07:09 - 08:14 (1.1h)
+    5. 08:39 - 09:14 (0.6h)
+    6. 18:12 - 19:12 (1.0h)
 
-Operator: KA9I
+Operator: KA9I @ Station: HAL 9000
   Operating Time: 1.4 hours (1 sessions)
   First QSO: 14:20
   Last QSO: 15:42
   Sessions:
     1. 14:20 - 15:42 (1.4h)
 
-Operator: UGX
-  Operating Time: 7.8 hours (3 sessions)
+Operator: UGX @ Station: HAL 9000
+  Operating Time: 7.1 hours (5 sessions)
   First QSO: 00:07
   Last QSO: 23:03
   Sessions:
-    1. 00:07 - 02:02 (1.9h)
-    2. 15:50 - 17:57 (2.1h)
-    3. 19:19 - 23:03 (3.7h)
+    1. 00:07 - 01:36 (1.5h)
+    2. 01:57 - 02:02 (0.1h)
+    3. 15:50 - 17:57 (2.1h)
+    4. 19:19 - 20:46 (1.4h)
+    5. 21:07 - 23:03 (1.9h)
 
-Operator: VGO
+Operator: VGO @ Station: HAL 9000
   Operating Time: 2.9 hours (1 sessions)
   First QSO: 10:18
   Last QSO: 13:14
@@ -95,7 +99,7 @@ Operator: VGO
     1. 10:18 - 13:14 (2.9h)
 
 SUMMARY:
-  Total Operator Time: 18.6 hours across 9 sessions
+  Total Operator Time: 17.2 hours across 13 sessions
 
 OPERATOR STATISTICS:
 ----------------------------------------
