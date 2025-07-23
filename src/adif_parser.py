@@ -8,7 +8,8 @@ class QSORecord:
     """Represents a single QSO record."""
     
     def __init__(self, freq: Optional[float] = None, band: Optional[str] = None, 
-                 time_on: Optional[int] = None, operator: Optional[str] = None) -> None:
+                 time_on: Optional[int] = None, operator: Optional[str] = None,
+                 call: Optional[str] = None) -> None:
         """
         Initialize a QSO record.
         
@@ -17,11 +18,13 @@ class QSORecord:
             band: Amateur radio band
             time_on: Time in HHMMSS format
             operator: Call sign of the operator
+            call: Call sign of the contacted station
         """
         self.freq = freq
         self.band = band
         self.time_on = time_on
         self.operator = operator
+        self.call = call
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert QSO record to dictionary."""
@@ -29,7 +32,8 @@ class QSORecord:
             'freq': self.freq,
             'band': self.band,
             'time': self.time_on,
-            'operator': self.operator
+            'operator': self.operator,
+            'call': self.call
         }
 
 
@@ -111,7 +115,25 @@ class ADIFParser:
         if not operator or operator == "":
             operator = "Mr. Nobody"
         
-        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator)
+        # Extract contacted station call sign - try multiple field names
+        call = None
+        call_patterns = [
+            r'<call:(\d+)>([^<]+)',           # Standard call field
+            r'<station_callsign:(\d+)>([^<]+)', # Alternative field
+            r'<callsign:(\d+)>([^<]+)',       # Another alternative
+        ]
+        
+        for pattern in call_patterns:
+            call_match = re.search(pattern, buffer, re.IGNORECASE)
+            if call_match:
+                call = call_match.group(2).strip()
+                break
+        
+        # Use "UNKNOWN" if no call sign found
+        if not call:
+            call = "UNKNOWN"
+        
+        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator, call=call)
 
     @staticmethod
     def _estimate_frequency_from_band(band: str) -> float:
