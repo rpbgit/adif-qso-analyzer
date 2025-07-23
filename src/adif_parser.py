@@ -2,6 +2,7 @@
 
 import re
 from typing import List, Dict, Optional, Any
+from pathlib import Path
 
 
 class QSORecord:
@@ -9,7 +10,7 @@ class QSORecord:
     
     def __init__(self, freq: Optional[float] = None, band: Optional[str] = None, 
                  time_on: Optional[int] = None, operator: Optional[str] = None,
-                 call: Optional[str] = None) -> None:
+                 call: Optional[str] = None, station: Optional[str] = None) -> None:
         """
         Initialize a QSO record.
         
@@ -19,12 +20,14 @@ class QSORecord:
             time_on: Time in HHMMSS format
             operator: Call sign of the operator
             call: Call sign of the contacted station
+            station: Station/computer name where QSO was logged
         """
         self.freq = freq
         self.band = band
         self.time_on = time_on
         self.operator = operator
         self.call = call
+        self.station = station
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert QSO record to dictionary."""
@@ -33,7 +36,8 @@ class QSORecord:
             'band': self.band,
             'time': self.time_on,
             'operator': self.operator,
-            'call': self.call
+            'call': self.call,
+            'station': self.station
         }
 
 
@@ -58,17 +62,31 @@ class ADIFParser:
         qsos = []
         
         try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                buffer = ''
-                for line in f:
-                    if '<eor>' in line.lower():
-                        buffer += line
-                        qso = ADIFParser._parse_qso_record(buffer)
-                        if qso:
-                            qsos.append(qso.to_dict())
-                        buffer = ''
-                    else:
-                        buffer += line
+            # Try different encodings to handle various ADIF file formats
+            encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
+            content = None
+            
+            for encoding in encodings:
+                try:
+                    with open(filename, 'r', encoding=encoding) as f:
+                        content = f.read()
+                    print(f"Successfully read file with {encoding} encoding")
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if content is None:
+                raise IOError("Could not read file with any supported encoding")
+            
+            # Split content by <eor> tags (end of record)
+            records = re.split(r'<eor>', content, flags=re.IGNORECASE)
+            
+            for record in records:
+                if record.strip():
+                    qso = ADIFParser._parse_qso_record(record)
+                    if qso:
+                        qsos.append(qso.to_dict())
+                        
         except FileNotFoundError:
             raise FileNotFoundError(f"ADIF file not found: {filename}")
         except IOError as e:
@@ -115,12 +133,19 @@ class ADIFParser:
         if not operator or operator == "":
             operator = "Mr. Nobody"
         
+        # Extract station/computer name
+        station_match = re.search(r'<n3fjp_computername:(\d+)>([^<]+)', buffer, re.IGNORECASE)
+        station = station_match.group(2).strip() if station_match else None
+        
+        # Use "HAL 9000" if station is None or empty
+        if not station or station == "":
+            station = "HAL 9000"
+        
         # Extract contacted station call sign - try multiple field names
         call = None
         call_patterns = [
             r'<call:(\d+)>([^<]+)',           # Standard call field
-            # r'<station_callsign:(\d+)>([^<]+)', # Alternative field
-            r'<callsign:(\d+)>([^<]+)',       # Another alternative
+            r'<callsign:(\d+)>([^<]+)',       # Alternative field
         ]
         
         for pattern in call_patterns:
@@ -133,7 +158,7 @@ class ADIFParser:
         if not call:
             call = "UNKNOWN"
         
-        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator, call=call)
+        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator, call=call, station=station)
 
     @staticmethod
     def _estimate_frequency_from_band(band: str) -> float:

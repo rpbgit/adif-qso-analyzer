@@ -292,9 +292,9 @@ class QSOMetrics:
         # Get operator sessions and create timeline of active periods
         operator_sessions = QSOMetrics._calculate_operator_sessions(qsos)
         
-        # Create timeline of all active periods (no overlaps since operators don't overlap)
+        # Create timeline of all active periods (no overlaps since operators work on separate stations)
         active_periods = []
-        for operator, session_data in operator_sessions.items():
+        for operator_station_key, session_data in operator_sessions.items():
             for session in session_data['sessions']:
                 start_minutes = QSOMetrics._time_to_minutes(session['start_time'])
                 end_minutes = QSOMetrics._time_to_minutes(session['end_time'])
@@ -370,6 +370,8 @@ class QSOMetrics:
     def _calculate_operator_sessions(qsos: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         """
         Calculate operator sessions including sign-in/sign-out times and accumulated time.
+        Sessions are grouped by operator + station combination. When an operator moves
+        to a different station, their session on the original station ends.
         
         Args:
             qsos: List of QSO records
@@ -384,84 +386,95 @@ class QSOMetrics:
         sorted_qsos = sorted([qso for qso in qsos if qso['time'] is not None], 
                            key=lambda x: x['time'])
         
-        operator_sessions = defaultdict(lambda: {
-            'sessions': [],
-            'total_minutes': 0,
-            'first_qso': None,
-            'last_qso': None,
-            'session_count': 0
-        })
-        
         if not sorted_qsos:
             return {}
         
-        # Track current session for each operator
-        current_sessions = {}
-        
-        for i, qso in enumerate(sorted_qsos):
+        # Group QSOs by operator + station combination
+        operator_station_qsos = defaultdict(list)
+        for qso in sorted_qsos:
             operator = qso.get('operator', 'UNKNOWN')
-            current_time = qso['time']
-            
-            # Initialize operator data if first time seeing them
-            if operator_sessions[operator]['first_qso'] is None:
-                operator_sessions[operator]['first_qso'] = current_time
-            
-            operator_sessions[operator]['last_qso'] = current_time
-            
-            # Check if this is a new session for this operator
-            if operator not in current_sessions:
-                # Start new session
-                current_sessions[operator] = {
-                    'start_time': current_time,
-                    'last_qso_time': current_time
-                }
-            else:
-                # Update existing session
-                current_sessions[operator]['last_qso_time'] = current_time
-            
-            # Look ahead to see if there's a gap or operator change
-            if i < len(sorted_qsos) - 1:
-                next_qso = sorted_qsos[i + 1]
-                next_operator = next_qso.get('operator', 'UNKNOWN')
-                next_time = next_qso['time']
-                
-                # Calculate gap between current and next QSO
-                gap_minutes = QSOMetrics._calculate_time_gap_minutes(current_time, next_time)
-                
-                # End session if gap > 30 minutes or operator changes
-                if gap_minutes > 30 or next_operator != operator:
-                    # End current session
-                    session = current_sessions[operator]
-                    session_duration = QSOMetrics._calculate_time_gap_minutes(
-                        session['start_time'], session['last_qso_time'])
-                    
-                    operator_sessions[operator]['sessions'].append({
-                        'start_time': session['start_time'],
-                        'end_time': session['last_qso_time'],
-                        'duration_minutes': session_duration
-                    })
-                    
-                    operator_sessions[operator]['total_minutes'] += session_duration
-                    operator_sessions[operator]['session_count'] += 1
-                    
-                    # Remove from current sessions
-                    del current_sessions[operator]
-            else:
-                # This is the last QSO, end any remaining sessions
-                for op, session in current_sessions.items():
-                    session_duration = QSOMetrics._calculate_time_gap_minutes(
-                        session['start_time'], session['last_qso_time'])
-                    
-                    operator_sessions[op]['sessions'].append({
-                        'start_time': session['start_time'],
-                        'end_time': session['last_qso_time'],
-                        'duration_minutes': session_duration
-                    })
-                    
-                    operator_sessions[op]['total_minutes'] += session_duration
-                    operator_sessions[op]['session_count'] += 1
+            station = qso.get('station', 'HAL 9000')
+            # Create unique key for operator@station
+            operator_station_key = f"{operator}@{station}"
+            operator_station_qsos[operator_station_key].append(qso)
         
-        return dict(operator_sessions)
+        operator_sessions = {}
+        
+        # Process each operator@station combination separately
+        for operator_station_key, qsos_list in operator_station_qsos.items():
+            # Extract operator and station from the key
+            operator, station = operator_station_key.split('@', 1)
+            
+            # Sort this operator@station's QSOs by time
+            qsos_list.sort(key=lambda x: x['time'])
+            
+            operator_sessions[operator_station_key] = {
+                'operator': operator,
+                'station': station,
+                'sessions': [],
+                'total_minutes': 0,
+                'first_qso': qsos_list[0]['time'],
+                'last_qso': qsos_list[-1]['time'],
+                'session_count': 0
+            }
+            
+            # Process sessions for this operator@station using 15-minute gap rule
+            current_session_start = qsos_list[0]['time']
+            current_session_end = qsos_list[0]['time']
+            
+            for i in range(1, len(qsos_list)):
+                current_qso = qsos_list[i]
+                prev_qso = qsos_list[i-1]
+                
+                # Calculate gap between consecutive QSOs for this operator@station
+                gap_minutes = QSOMetrics._calculate_time_gap_minutes(
+                    prev_qso['time'], current_qso['time'])
+                
+                if gap_minutes > 15:
+                    # End current session and start new one
+                    session_duration = QSOMetrics._calculate_time_gap_minutes(
+                        current_session_start, current_session_end)
+                    
+                    # For multi-station operations: assign minimum 2-minute duration 
+                    # to single QSO sessions (realistic time for QSO + logging)
+                    if session_duration == 0:
+                        session_duration = 2
+                    
+                    operator_sessions[operator_station_key]['sessions'].append({
+                        'start_time': current_session_start,
+                        'end_time': current_session_end,
+                        'duration_minutes': session_duration
+                    })
+                    
+                    operator_sessions[operator_station_key]['total_minutes'] += session_duration
+                    operator_sessions[operator_station_key]['session_count'] += 1
+                    
+                    # Start new session
+                    current_session_start = current_qso['time']
+                    current_session_end = current_qso['time']
+                else:
+                    # Continue current session
+                    current_session_end = current_qso['time']
+            
+            # Add the final session
+            session_duration = QSOMetrics._calculate_time_gap_minutes(
+                current_session_start, current_session_end)
+            
+            # For multi-station operations: assign minimum 2-minute duration 
+            # to single QSO sessions (realistic time for QSO + logging)
+            if session_duration == 0:
+                session_duration = 2
+            
+            operator_sessions[operator_station_key]['sessions'].append({
+                'start_time': current_session_start,
+                'end_time': current_session_end,
+                'duration_minutes': session_duration
+            })
+            
+            operator_sessions[operator_station_key]['total_minutes'] += session_duration
+            operator_sessions[operator_station_key]['session_count'] += 1
+        
+        return operator_sessions
     
     @staticmethod
     def _calculate_time_gap_minutes(time1: int, time2: int) -> int:
@@ -635,11 +648,11 @@ class QSOMetrics:
         # Add data quality warnings before S&P percentage
         if not data_quality['sp_analysis_reliable']:
             if data_quality['missing_frequency'] > 0:
-                report.append("⚠️  WARNING: Frequency data missing - S&P analysis unreliable")
+                report.append("WARNING: Frequency data missing - S&P analysis unreliable")
                 report.append(f"   Missing frequency in {data_quality['missing_frequency']} QSOs")
                 report.append("   All QSOs classified as RUN mode due to lack of frequency data")
             elif data_quality['frequencies_estimated']:
-                report.append("⚠️  WARNING: Frequencies estimated from band data - S&P analysis may be unreliable")
+                report.append("WARNING: Frequencies estimated from band data - S&P analysis may be unreliable")
                 report.append(f"   {data_quality['estimated_frequencies']} frequencies estimated from band center")
         
         report.append(f"S&P Percentage: {sp_percentage:.1f}%")
@@ -659,9 +672,9 @@ class QSOMetrics:
             report.append(f"Missing Time: {data_quality['missing_time']} QSOs")
         
         if data_quality['sp_analysis_reliable']:
-            report.append("✅ S&P analysis reliable")
+            report.append("STATUS: S&P analysis reliable")
         else:
-            report.append("❌ S&P analysis unreliable due to missing/estimated frequency data")
+            report.append("STATUS: S&P analysis unreliable due to missing/estimated frequency data")
         
         report.append("")
         
@@ -698,9 +711,9 @@ class QSOMetrics:
             report.append(f"  Reconciliation: {total_check:.1f} hours")
             
             if time_acc['reconciliation_check']:
-                report.append("  ✅ Time accounting reconciled")
+                report.append("  STATUS: Time accounting reconciled")
             else:
-                report.append(f"  ⚠️  Time discrepancy: {time_acc['reconciliation_diff']:.1f} hours")
+                report.append(f"  WARNING: Time discrepancy: {time_acc['reconciliation_diff']:.1f} hours")
         
         # Add hourly rates
         if log_stats['hourly_rates']:
@@ -717,9 +730,11 @@ class QSOMetrics:
             report.append("")
             report.append("OPERATOR SESSIONS:")
             report.append("-" * 40)
-            for operator, session_data in sorted(log_stats['operator_sessions'].items()):
+            for operator_station_key, session_data in sorted(log_stats['operator_sessions'].items()):
+                operator = session_data['operator']
+                station = session_data['station']
                 total_hours = session_data['total_minutes'] / 60.0
-                report.append(f"Operator: {operator}")
+                report.append(f"Operator: {operator} @ Station: {station}")
                 report.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions)")
                 report.append(f"  First QSO: {QSOMetrics._format_time(session_data['first_qso'])}")
                 report.append(f"  Last QSO: {QSOMetrics._format_time(session_data['last_qso'])}")
@@ -743,6 +758,20 @@ class QSOMetrics:
             
             report.append("SUMMARY:")
             report.append(f"  Total Operator Time: {total_operator_hours:.1f} hours across {total_sessions} sessions")
+            
+            # Add multi-station explanation if many short sessions detected
+            single_qso_sessions = 0
+            for session_data in log_stats['operator_sessions'].values():
+                for session in session_data['sessions']:
+                    if session['duration_minutes'] <= 2:  # Likely single QSO with minimum duration applied
+                        single_qso_sessions += 1
+            
+            if single_qso_sessions > total_sessions * 0.3:  # >30% are very short sessions
+                report.append("")
+                report.append("MULTI-STATION OPERATION DETECTED:")
+                report.append(f"  {single_qso_sessions} short sessions detected (likely single QSOs)")
+                report.append("  This suggests a merged log from multiple logging computers.")
+                report.append("  Session times represent minimum estimates for multi-station operations.")
         
         report.append("")
         
