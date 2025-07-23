@@ -4,6 +4,11 @@ QSO ANALYSIS SUMMARY REPORT
 Total QSOs: 713
 S&P Percentage: 43.7%
 
+DATA QUALITY:
+----------------------------------------
+Frequency Coverage: 100.0%
+✅ S&P analysis reliable
+
 LOG STATISTICS:
 ----------------------------------------
 Total Log Duration: 22.9 hours
@@ -56,7 +61,7 @@ HOURLY QSO RATES:
 
 OPERATOR SESSIONS:
 ----------------------------------------
-Operator: 9ZV 
+Operator: 9ZV
   Operating Time: 6.5 hours (4 sessions)
   First QSO: 02:04
   Last QSO: 19:12
@@ -66,14 +71,14 @@ Operator: 9ZV
     3. 06:04 - 09:14 (3.2h)
     4. 18:12 - 19:12 (1.0h)
 
-Operator: KA9I 
+Operator: KA9I
   Operating Time: 1.4 hours (1 sessions)
   First QSO: 14:20
   Last QSO: 15:42
   Sessions:
     1. 14:20 - 15:42 (1.4h)
 
-Operator: UGX 
+Operator: UGX
   Operating Time: 7.8 hours (3 sessions)
   First QSO: 00:07
   Last QSO: 23:03
@@ -82,7 +87,7 @@ Operator: UGX
     2. 15:50 - 17:57 (2.1h)
     3. 19:19 - 23:03 (3.7h)
 
-Operator: VGO 
+Operator: VGO
   Operating Time: 2.9 hours (1 sessions)
   First QSO: 10:18
   Last QSO: 13:14
@@ -94,25 +99,25 @@ SUMMARY:
 
 OPERATOR STATISTICS:
 ----------------------------------------
-Operator: 9ZV 
+Operator: 9ZV
   QSO Count: 278 (39.0% of total)
   Average Rate: 16.2 QSOs/hour
   Peak Rate: 62 QSOs/hour
   Run: 45.3% | S&P: 54.7%
 
-Operator: KA9I 
+Operator: KA9I
   QSO Count: 50 (7.0% of total)
   Average Rate: 36.6 QSOs/hour
   Peak Rate: 38 QSOs/hour
   Run: 100.0% | S&P: 0.0%
 
-Operator: UGX 
+Operator: UGX
   QSO Count: 289 (40.5% of total)
   Average Rate: 12.6 QSOs/hour
   Peak Rate: 52 QSOs/hour
   Run: 78.7% | S&P: 21.3%
 
-Operator: VGO 
+Operator: VGO
   QSO Count: 96 (13.5% of total)
   Average Rate: 32.7 QSOs/hour
   Peak Rate: 40 QSOs/hour

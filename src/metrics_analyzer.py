@@ -550,6 +550,62 @@ class QSOMetrics:
         return hours * 60 + minutes
     
     @staticmethod
+    def analyze_data_quality(qsos: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Analyze data quality and identify potential issues.
+        
+        Args:
+            qsos: List of QSO records
+            
+        Returns:
+            Dictionary with data quality metrics
+        """
+        if not qsos:
+            return {
+                'total_qsos': 0,
+                'missing_frequency': 0,
+                'missing_band': 0,
+                'missing_time': 0,
+                'freq_coverage': 0.0,
+                'sp_analysis_reliable': False
+            }
+            
+        total_qsos = len(qsos)
+        missing_freq = sum(1 for qso in qsos if qso.get('freq') is None)
+        missing_band = sum(1 for qso in qsos if qso.get('band') is None)
+        missing_time = sum(1 for qso in qsos if qso.get('time') is None)
+        
+        # Check if frequencies are estimated (all frequencies are exact band center frequencies)
+        estimated_freq_count = 0
+        if missing_freq == 0:  # Only check if we have frequency data
+            band_freq_map = {
+                '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
+                '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
+                '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
+            }
+            
+            for qso in qsos:
+                freq = qso.get('freq')
+                band = qso.get('band', '').upper().strip()
+                if freq is not None and band in band_freq_map:
+                    if abs(freq - band_freq_map[band]) < 0.001:  # Within 1 kHz of band center
+                        estimated_freq_count += 1
+        
+        freq_coverage = (total_qsos - missing_freq) / total_qsos * 100 if total_qsos > 0 else 0
+        sp_analysis_reliable = missing_freq == 0 and estimated_freq_count < (total_qsos * 0.9)
+        
+        return {
+            'total_qsos': total_qsos,
+            'missing_frequency': missing_freq,
+            'missing_band': missing_band,
+            'missing_time': missing_time,
+            'freq_coverage': freq_coverage,
+            'estimated_frequencies': estimated_freq_count,
+            'sp_analysis_reliable': sp_analysis_reliable,
+            'frequencies_estimated': estimated_freq_count > (total_qsos * 0.5)
+        }
+    
+    @staticmethod
     def generate_summary_report(qsos: List[Dict[str, Any]]) -> str:
         """
         Generate a comprehensive summary report.
@@ -564,6 +620,9 @@ class QSOMetrics:
         operator_stats = QSOMetrics.calculate_qso_rates(qsos)
         total_qsos = len(qsos)
         
+        # Analyze data quality
+        data_quality = QSOMetrics.analyze_data_quality(qsos)
+        
         # Calculate overall log statistics
         log_stats = QSOMetrics._calculate_log_statistics(qsos)
         
@@ -572,7 +631,38 @@ class QSOMetrics:
         report.append("QSO ANALYSIS SUMMARY REPORT")
         report.append("=" * 60)
         report.append(f"Total QSOs: {total_qsos}")
+        
+        # Add data quality warnings before S&P percentage
+        if not data_quality['sp_analysis_reliable']:
+            if data_quality['missing_frequency'] > 0:
+                report.append("⚠️  WARNING: Frequency data missing - S&P analysis unreliable")
+                report.append(f"   Missing frequency in {data_quality['missing_frequency']} QSOs")
+                report.append("   All QSOs classified as RUN mode due to lack of frequency data")
+            elif data_quality['frequencies_estimated']:
+                report.append("⚠️  WARNING: Frequencies estimated from band data - S&P analysis may be unreliable")
+                report.append(f"   {data_quality['estimated_frequencies']} frequencies estimated from band center")
+        
         report.append(f"S&P Percentage: {sp_percentage:.1f}%")
+        report.append("")
+        
+        # Add data quality section
+        report.append("DATA QUALITY:")
+        report.append("-" * 40)
+        report.append(f"Frequency Coverage: {data_quality['freq_coverage']:.1f}%")
+        if data_quality['missing_frequency'] > 0:
+            report.append(f"Missing Frequency: {data_quality['missing_frequency']} QSOs")
+        if data_quality['estimated_frequencies'] > 0:
+            report.append(f"Estimated Frequencies: {data_quality['estimated_frequencies']} QSOs")
+        if data_quality['missing_band'] > 0:
+            report.append(f"Missing Band: {data_quality['missing_band']} QSOs")
+        if data_quality['missing_time'] > 0:
+            report.append(f"Missing Time: {data_quality['missing_time']} QSOs")
+        
+        if data_quality['sp_analysis_reliable']:
+            report.append("✅ S&P analysis reliable")
+        else:
+            report.append("❌ S&P analysis unreliable due to missing/estimated frequency data")
+        
         report.append("")
         
         # Add overall log statistics

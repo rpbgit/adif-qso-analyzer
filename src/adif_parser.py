@@ -71,7 +71,7 @@ class ADIFParser:
             raise IOError(f"Error reading ADIF file: {e}")
         
         # Filter out incomplete records and sort by time
-        qsos = [q for q in qsos if q['freq'] is not None and q['band'] is not None]
+        qsos = [q for q in qsos if q['freq'] is not None or q['band'] is not None]
         qsos = sorted(qsos, key=lambda x: x['time'] if x['time'] is not None else 0)
         
         return qsos
@@ -95,17 +95,60 @@ class ADIFParser:
         band_match = re.search(r'<band:(\d+)>([^<]+)', buffer, re.IGNORECASE)
         band = band_match.group(2) if band_match else None
         
+        # If no frequency but we have band, estimate frequency from band
+        if freq is None and band is not None:
+            freq = ADIFParser._estimate_frequency_from_band(band)
+        
         # Extract time_on (HHMMSS format)
         time_match = re.search(r'<time_on:(\d+)>(\d+)', buffer, re.IGNORECASE)
         time_on = int(time_match.group(2)) if time_match else None
         
         # Extract operator call sign
         operator_match = re.search(r'<operator:(\d+)>([^<]+)', buffer, re.IGNORECASE)
-        operator = operator_match.group(2) if operator_match else None
+        operator = operator_match.group(2).strip() if operator_match else None
         
-        # If no operator field, try station_callsign
-        if not operator:
-            station_match = re.search(r'<station_callsign:(\d+)>([^<]+)', buffer, re.IGNORECASE)
-            operator = station_match.group(2) if station_match else "UNKNOWN"
+        # Use "Mr. Nobody" if operator is None or empty
+        if not operator or operator == "":
+            operator = "Mr. Nobody"
         
         return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator)
+
+    @staticmethod
+    def _estimate_frequency_from_band(band: str) -> float:
+        """
+        Estimate frequency from band designation.
+        
+        Args:
+            band: Amateur radio band (e.g., "20M", "40M", etc.)
+            
+        Returns:
+            Estimated frequency in MHz
+        """
+        band_freq_map = {
+            '160M': 1.900,
+            '80M': 3.750,
+            '60M': 5.330,
+            '40M': 7.100,
+            '30M': 10.125,
+            '20M': 14.200,
+            '17M': 18.100,
+            '15M': 21.200,
+            '12M': 24.900,
+            '10M': 28.400,
+            '6M': 50.100,
+            '4M': 70.200,
+            '2M': 144.200,
+            '1.25M': 222.100,
+            '70CM': 432.100,
+            '33CM': 902.100,
+            '23CM': 1296.100,
+            '13CM': 2304.100,
+            '9CM': 3456.100,
+            '6CM': 5760.100,
+            '3CM': 10368.100,
+            '1.25CM': 24048.100,
+        }
+        
+        # Normalize band string
+        band_upper = band.upper().strip()
+        return band_freq_map.get(band_upper, 14.200)  # Default to 20M if unknown
