@@ -119,7 +119,7 @@ class ADIFParser:
         call = None
         call_patterns = [
             r'<call:(\d+)>([^<]+)',           # Standard call field
-            r'<station_callsign:(\d+)>([^<]+)', # Alternative field
+            # r'<station_callsign:(\d+)>([^<]+)', # Alternative field
             r'<callsign:(\d+)>([^<]+)',       # Another alternative
         ]
         
