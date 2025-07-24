@@ -109,7 +109,7 @@ class ADIFParser:
         Returns:
             QSORecord object or None if parsing fails
         """
-        # Extract frequency (MHz float)
+        # Extract frequency (MHz float) - keep as None if missing
         freq_match = re.search(r'<freq:(\d+)>([\d\.]+)', buffer, re.IGNORECASE)
         freq = float(freq_match.group(2)) if freq_match else None
         
@@ -117,9 +117,8 @@ class ADIFParser:
         band_match = re.search(r'<band:(\d+)>([^<]+)', buffer, re.IGNORECASE)
         band = band_match.group(2) if band_match else None
         
-        # If no frequency but we have band, estimate frequency from band
-        if freq is None and band is not None:
-            freq = ADIFParser._estimate_frequency_from_band(band)
+        # DON'T estimate frequency here - let the metrics analyzer handle it
+        # This preserves the distinction between actual and missing frequency data
         
         # Extract time_on (HHMMSS format)
         time_match = re.search(r'<time_on:(\d+)>(\d+)', buffer, re.IGNORECASE)

@@ -22,15 +22,33 @@ class QSOMetrics:
         total = 0
         prev = None
         
+        # Band center frequencies for estimation when needed
+        band_freq_map = {
+            '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
+            '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
+            '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
+        }
+        
         for qso in qsos:
             if prev is not None:
                 # Check if same band
-                if qso['band'] == prev['band']:
-                    freq_diff = abs(qso['freq'] - prev['freq'])
-                    # Frequency change > 200 Hz indicates S&P
-                    if freq_diff > 0.000200:
-                        s_and_p += 1
-                    total += 1
+                if qso.get('band') == prev.get('band'):
+                    # Get frequencies, estimating from band if missing
+                    current_freq = qso.get('freq')
+                    if current_freq is None and qso.get('band'):
+                        current_freq = band_freq_map.get(qso.get('band', '').upper().strip(), 14.200)
+                    
+                    prev_freq = prev.get('freq')
+                    if prev_freq is None and prev.get('band'):
+                        prev_freq = band_freq_map.get(prev.get('band', '').upper().strip(), 14.200)
+                    
+                    # Only calculate if we have frequency data (actual or estimated)
+                    if current_freq is not None and prev_freq is not None:
+                        freq_diff = abs(current_freq - prev_freq)
+                        # Frequency change > 200 Hz indicates S&P
+                        if freq_diff > 0.000200:
+                            s_and_p += 1
+                        total += 1
             prev = qso
         
         if total == 0:
@@ -54,7 +72,9 @@ class QSOMetrics:
             'avg_rate_per_hour': 0.0,
             'peak_rate_per_hour': 0.0,
             'run_percentage': 0.0,
-            'sp_percentage': 0.0
+            'sp_percentage': 0.0,
+            'missing_freq_count': 0,
+            'sp_analysis_reliable': True
         })
         
         # Group QSOs by operator and collect times
@@ -63,6 +83,9 @@ class QSOMetrics:
             operator_stats[operator]['qso_count'] += 1
             if qso['time'] is not None:
                 operator_stats[operator]['times'].append(qso['time'])
+            # Track missing frequency data per operator
+            if qso.get('freq') is None:
+                operator_stats[operator]['missing_freq_count'] += 1
         
         # Calculate rates for each operator
         for operator, stats in operator_stats.items():
@@ -78,6 +101,11 @@ class QSOMetrics:
         
         # Calculate Run vs S&P percentages for each operator
         QSOMetrics._calculate_operator_sp_percentages(qsos, operator_stats)
+        
+        # Update S&P analysis reliability per operator
+        for operator, stats in operator_stats.items():
+            if stats['missing_freq_count'] > 0:
+                stats['sp_analysis_reliable'] = False
         
         return dict(operator_stats)
     
@@ -168,12 +196,29 @@ class QSOMetrics:
             for qso in sorted_qsos:
                 if prev is not None:
                     # Check if same band
-                    if qso['band'] == prev['band']:
-                        freq_diff = abs(qso['freq'] - prev['freq'])
-                        # Frequency change > 200 Hz indicates S&P
-                        if freq_diff > 0.000200:
-                            s_and_p += 1
-                        total += 1
+                    if qso.get('band') == prev.get('band'):
+                        # Get frequencies, estimating from band if missing
+                        band_freq_map = {
+                            '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
+                            '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
+                            '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
+                        }
+                        
+                        current_freq = qso.get('freq')
+                        if current_freq is None and qso.get('band'):
+                            current_freq = band_freq_map.get(qso.get('band', '').upper().strip(), 14.200)
+                        
+                        prev_freq = prev.get('freq')
+                        if prev_freq is None and prev.get('band'):
+                            prev_freq = band_freq_map.get(prev.get('band', '').upper().strip(), 14.200)
+                        
+                        # Only calculate if we have frequency data (actual or estimated)
+                        if current_freq is not None and prev_freq is not None:
+                            freq_diff = abs(current_freq - prev_freq)
+                            # Frequency change > 200 Hz indicates S&P
+                            if freq_diff > 0.000200:
+                                s_and_p += 1
+                            total += 1
                 prev = qso
             
             if total > 0:
@@ -786,7 +831,13 @@ class QSOMetrics:
             report.append(f"  QSO Count: {stats['qso_count']} ({contribution_pct:.1f}% of total)")
             report.append(f"  Average Rate: {stats['avg_rate_per_hour']:.1f} QSOs/hour")
             report.append(f"  Peak Rate: {stats['peak_rate_per_hour']:.0f} QSOs/hour")
-            report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}%")
+            
+            # Show Run/S&P with reliability indicator
+            if stats['sp_analysis_reliable']:
+                report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% (accurate - all QSOs have frequency data)")
+            else:
+                missing_count = stats['missing_freq_count']
+                report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% (unreliable - {missing_count} QSOs missing frequency)")
             report.append("")
         
         return "\n".join(report)
