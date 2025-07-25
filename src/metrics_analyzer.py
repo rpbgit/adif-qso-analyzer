@@ -95,9 +95,12 @@ class QSOMetrics:
                 duration_hours = QSOMetrics._calculate_duration_hours(times)
                 if duration_hours > 0:
                     stats['avg_rate_per_hour'] = stats['qso_count'] / duration_hours
-                
                 # Calculate peak rate (best hour)
                 stats['peak_rate_per_hour'] = QSOMetrics._calculate_peak_rate(times)
+            elif len(times) == 1:
+                # If only one QSO, set average rate to 1.0
+                stats['avg_rate_per_hour'] = 1.0
+                stats['peak_rate_per_hour'] = 1.0
         
         # Calculate Run vs S&P percentages for each operator
         QSOMetrics._calculate_operator_sp_percentages(qsos, operator_stats)
@@ -183,16 +186,21 @@ class QSOMetrics:
         
         # Calculate S&P percentage for each operator
         for operator, op_qsos in operator_qsos.items():
+            if len(op_qsos) == 1:
+                operator_stats[operator]['sp_percentage'] = 0.0
+                operator_stats[operator]['run_percentage'] = 100.0
+                continue
+
             if len(op_qsos) < 2:
                 continue
-                
+
             s_and_p = 0
             total = 0
             prev = None
-            
+
             # Sort operator's QSOs by time
             sorted_qsos = sorted(op_qsos, key=lambda x: x['time'] if x['time'] is not None else 0)
-            
+
             for qso in sorted_qsos:
                 if prev is not None:
                     # Check if same band
@@ -203,15 +211,15 @@ class QSOMetrics:
                             '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
                             '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
                         }
-                        
+
                         current_freq = qso.get('freq')
                         if current_freq is None and qso.get('band'):
                             current_freq = band_freq_map.get(qso.get('band', '').upper().strip(), 14.200)
-                        
+
                         prev_freq = prev.get('freq')
                         if prev_freq is None and prev.get('band'):
                             prev_freq = band_freq_map.get(prev.get('band', '').upper().strip(), 14.200)
-                        
+
                         # Only calculate if we have frequency data (actual or estimated)
                         if current_freq is not None and prev_freq is not None:
                             freq_diff = abs(current_freq - prev_freq)
@@ -220,7 +228,7 @@ class QSOMetrics:
                                 s_and_p += 1
                             total += 1
                 prev = qso
-            
+
             if total > 0:
                 sp_percentage = 100.0 * s_and_p / total
                 operator_stats[operator]['sp_percentage'] = sp_percentage
