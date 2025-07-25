@@ -832,11 +832,17 @@ class QSOMetrics:
             report.append(f"  Average Rate: {stats['avg_rate_per_hour']:.1f} QSOs/hour")
             report.append(f"  Peak Rate: {stats['peak_rate_per_hour']:.0f} QSOs/hour")
 
-            # Confidence indicator for S&P/run mode
-            if stats.get('missing_freq_count', 0) == 0:
+            # Confidence indicator for S&P/run mode, with percent missing
+            missing_count = stats.get('missing_freq_count', 0)
+            qso_count = stats.get('qso_count', 0)
+            if qso_count > 0:
+                missing_pct = 100.0 * missing_count / qso_count
+            else:
+                missing_pct = 0.0
+            if missing_count == 0:
                 confidence = "(accurate - all QSOs have frequency data)"
             else:
-                confidence = f"(unreliable - {stats['missing_freq_count']} QSOs missing frequency)"
+                confidence = f"(unreliable - {missing_count} QSOs missing frequency, {missing_pct:.1f}% of QSOs)"
             report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
             report.append("")
         
