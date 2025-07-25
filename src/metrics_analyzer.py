@@ -779,8 +779,10 @@ class QSOMetrics:
                 operator = session_data['operator']
                 station = session_data['station']
                 total_hours = session_data['total_minutes'] / 60.0
+                # Count total QSOs for this operator@station
+                total_qsos_for_station = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station)
                 report.append(f"Operator: {operator} @ Station: {station}")
-                report.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions)")
+                report.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions, {total_qsos_for_station} QSOs)")
                 report.append(f"  First QSO: {QSOMetrics._format_time(session_data['first_qso'])}")
                 report.append(f"  Last QSO: {QSOMetrics._format_time(session_data['last_qso'])}")
                 

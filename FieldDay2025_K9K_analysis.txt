@@ -62,7 +62,7 @@ HOURLY QSO RATES:
 OPERATOR SESSIONS:
 ----------------------------------------
 Operator: 9ZV @ Station: W9ZV-X230
-  Operating Time: 5.8 hours (6 sessions)
+  Operating Time: 5.8 hours (6 sessions, 278 QSOs)
   First QSO: 02:04
   Last QSO: 19:12
   Sessions:
@@ -74,14 +74,14 @@ Operator: 9ZV @ Station: W9ZV-X230
     6. 18:12 - 19:12 (1.0h, 45 QSOs)
 
 Operator: KA9I @ Station: W9ZV-X230
-  Operating Time: 1.4 hours (1 sessions)
+  Operating Time: 1.4 hours (1 sessions, 50 QSOs)
   First QSO: 14:20
   Last QSO: 15:42
   Sessions:
     1. 14:20 - 15:42 (1.4h, 50 QSOs)
 
 Operator: UGX @ Station: W9ZV-X230
-  Operating Time: 7.1 hours (5 sessions)
+  Operating Time: 7.1 hours (5 sessions, 289 QSOs)
   First QSO: 00:07
   Last QSO: 23:03
   Sessions:
@@ -92,7 +92,7 @@ Operator: UGX @ Station: W9ZV-X230
     5. 21:07 - 23:03 (1.9h, 80 QSOs)
 
 Operator: VGO @ Station: W9ZV-X230
-  Operating Time: 2.9 hours (1 sessions)
+  Operating Time: 2.9 hours (1 sessions, 96 QSOs)
   First QSO: 10:18
   Last QSO: 13:14
   Sessions:
