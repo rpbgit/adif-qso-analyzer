@@ -584,19 +584,21 @@ class QSOMetrics:
         return gaps
     
     @staticmethod
-    def _format_time(time_hhmmss: int) -> str:
+    def _format_time(time_hhmmss: int, date: str = None) -> str:
         """
-        Format HHMMSS time for display.
+        Format HHMMSS time (optionally with date) for display.
         
         Args:
             time_hhmmss: Time in HHMMSS format
-            
+            date: Optional date string (YYYY-MM-DD)
         Returns:
-            Formatted time string (HH:MM)
+            Formatted time string (YYYY-MM-DD HH:MM or HH:MM)
         """
         time_str = f"{time_hhmmss:06d}"
         hours = time_str[:2]
         minutes = time_str[2:4]
+        if date:
+            return f"{date} {hours}:{minutes}"
         return f"{hours}:{minutes}"
     
     @staticmethod
@@ -674,30 +676,38 @@ class QSOMetrics:
     @staticmethod
     def generate_summary_report(qsos: List[Dict[str, Any]]) -> str:
         """
-        Generate a comprehensive summary report.
+        Generate a comprehensive summary report with date and time for all time fields.
         
         Args:
             qsos: List of QSO records
-            
         Returns:
             Formatted summary report as string
         """
         sp_percentage = QSOMetrics.calculate_sp_percentage(qsos)
         operator_stats = QSOMetrics.calculate_qso_rates(qsos)
         total_qsos = len(qsos)
-        
+
         # Analyze data quality
         data_quality = QSOMetrics.analyze_data_quality(qsos)
-        
+
         # Calculate overall log statistics
         log_stats = QSOMetrics._calculate_log_statistics(qsos)
-        
+
+        # Try to extract date for each QSO (assume 'date' key in QSO dict, else None)
+        # Use the date of the first QSO for log-wide fields
+        date_lookup = {}
+        for qso in qsos:
+            if 'time' in qso and 'date' in qso:
+                date_lookup[qso['time']] = qso['date']
+        def get_date_for_time(time):
+            return date_lookup.get(time, None)
+
         report = []
         report.append("=" * 60)
         report.append("QSO ANALYSIS SUMMARY REPORT")
         report.append("=" * 60)
         report.append(f"Total QSOs: {total_qsos}")
-        
+
         # Add data quality warnings before S&P percentage
         if not data_quality['sp_analysis_reliable']:
             if data_quality['missing_frequency'] > 0:
@@ -707,10 +717,10 @@ class QSOMetrics:
             elif data_quality['frequencies_estimated']:
                 report.append("WARNING: Frequencies estimated from band data - S&P analysis may be unreliable")
                 report.append(f"   {data_quality['estimated_frequencies']} frequencies estimated from band center")
-        
+
         report.append(f"S&P Percentage: {sp_percentage:.1f}%")
         report.append("")
-        
+
         # Add data quality section
         report.append("DATA QUALITY:")
         report.append("-" * 40)
@@ -723,51 +733,59 @@ class QSOMetrics:
             report.append(f"Missing Band: {data_quality['missing_band']} QSOs")
         if data_quality['missing_time'] > 0:
             report.append(f"Missing Time: {data_quality['missing_time']} QSOs")
-        
+
         if data_quality['sp_analysis_reliable']:
             report.append("STATUS: S&P analysis reliable")
         else:
             report.append("STATUS: S&P analysis unreliable due to missing/estimated frequency data")
-        
+
         report.append("")
-        
+
         # Add overall log statistics
         report.append("LOG STATISTICS:")
         report.append("-" * 40)
         report.append(f"Total Log Duration: {log_stats['total_hours']:.1f} hours")
         report.append(f"Overall QSO Rate: {log_stats['overall_rate']:.1f} QSOs/hour")
-        
+
         # Show all gaps
         if log_stats['gaps']:
             total_silent_minutes = sum(gap['duration_min'] for gap in log_stats['gaps'])
             total_silent_hours = total_silent_minutes / 60.0
             report.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])} totaling {total_silent_hours:.1f} hours")
             for i, gap in enumerate(log_stats['gaps'], 1):
+                start_date = get_date_for_time(gap['start'])
+                end_date = get_date_for_time(gap['end'])
                 report.append(f"  Gap {i}: {gap['duration_min']:.0f} minutes "
-                            f"({QSOMetrics._format_time(gap['start'])} - {QSOMetrics._format_time(gap['end'])})")
+                              f"({QSOMetrics._format_time(gap['start'], start_date)} - {QSOMetrics._format_time(gap['end'], end_date)})")
         else:
             report.append("Silent Periods (>15 min): None")
-        
+
         # Add corrected time accounting
         if 'time_accounting' in log_stats:
             time_acc = log_stats['time_accounting']
             report.append("")
             report.append("TIME BREAKDOWN:")
             report.append(f"  Total Log Duration: {time_acc['total_log_hours']:.1f} hours")
+            # Add first and last QSO times with date
+            if 'start_time' in log_stats and 'end_time' in log_stats:
+                start_date = get_date_for_time(log_stats['start_time'])
+                end_date = get_date_for_time(log_stats['end_time'])
+                report.append(f"  First QSO: {QSOMetrics._format_time(log_stats['start_time'], start_date)}")
+                report.append(f"  Last QSO: {QSOMetrics._format_time(log_stats['end_time'], end_date)}")
             report.append(f"  Active Operating Time: {time_acc['active_operating_hours']:.1f} hours")
             report.append(f"  Silent/Gap Time: {time_acc['all_gap_hours']:.1f} hours")
             report.append(f"    - Long gaps (>15 min): {time_acc['long_gap_hours']:.1f} hours")
             report.append(f"    - Short gaps (<15 min): {time_acc['short_gap_hours']:.1f} hours")
-            
+
             # Add reconciliation check
             total_check = time_acc['active_operating_hours'] + time_acc['all_gap_hours']
             report.append(f"  Reconciliation: {total_check:.1f} hours")
-            
+
             if time_acc['reconciliation_check']:
                 report.append("  STATUS: Time accounting reconciled")
             else:
                 report.append(f"  WARNING: Time discrepancy: {time_acc['reconciliation_diff']:.1f} hours")
-        
+
         # Add hourly rates
         if log_stats['hourly_rates']:
             report.append("")
@@ -777,7 +795,7 @@ class QSOMetrics:
                 hour = hour_data['hour']
                 count = hour_data['qso_count']
                 report.append(f"  {hour:02d}:00-{hour:02d}:59: {count} QSOs")
-        
+
         # Add operator sessions
         if log_stats['operator_sessions']:
             report.append("")
@@ -791,9 +809,10 @@ class QSOMetrics:
                 total_qsos_for_station = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station)
                 report.append(f"Operator: {operator} @ Station: {station}")
                 report.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions, {total_qsos_for_station} QSOs)")
+                # First/last QSO (time only)
                 report.append(f"  First QSO: {QSOMetrics._format_time(session_data['first_qso'])}")
                 report.append(f"  Last QSO: {QSOMetrics._format_time(session_data['last_qso'])}")
-                
+
                 # Show individual sessions
                 if session_data['sessions']:
                     report.append("  Sessions:")
@@ -805,36 +824,36 @@ class QSOMetrics:
                                     f"{QSOMetrics._format_time(session['end_time'])} "
                                     f"({duration_hours:.1f}h, {session_qso_count} QSOs)")
                 report.append("")
-            
+
             # Add total operator time summary
             total_operator_minutes = sum(session_data['total_minutes'] 
                                        for session_data in log_stats['operator_sessions'].values())
             total_operator_hours = total_operator_minutes / 60.0
             total_sessions = sum(session_data['session_count'] 
                                for session_data in log_stats['operator_sessions'].values())
-            
+
             report.append("SUMMARY:")
             report.append(f"  Total Operator Time: {total_operator_hours:.1f} hours across {total_sessions} sessions")
-            
+
             # Add multi-station explanation if many short sessions detected
             single_qso_sessions = 0
             for session_data in log_stats['operator_sessions'].values():
                 for session in session_data['sessions']:
                     if session['duration_minutes'] <= 2:  # Likely single QSO with minimum duration applied
                         single_qso_sessions += 1
-            
+
             if single_qso_sessions > total_sessions * 0.3:  # >30% are very short sessions
                 report.append("")
                 report.append("MULTI-STATION OPERATION DETECTED:")
                 report.append(f"  {single_qso_sessions} short sessions detected (likely single QSOs)")
                 report.append("  This suggests a merged log from multiple logging computers.")
                 report.append("  Session times represent minimum estimates for multi-station operations.")
-        
+
         report.append("")
-        
+
         report.append("OPERATOR STATISTICS:")
         report.append("-" * 40)
-        
+
         for operator, stats in sorted(operator_stats.items()):
             # Calculate contribution percentage
             contribution_pct = (stats['qso_count'] / total_qsos) * 100 if total_qsos > 0 else 0
@@ -857,5 +876,5 @@ class QSOMetrics:
                 confidence = f"(unreliable - {missing_count} QSOs missing frequency, {missing_pct:.1f}% of QSOs)"
             report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
             report.append("")
-        
+
         return "\n".join(report)

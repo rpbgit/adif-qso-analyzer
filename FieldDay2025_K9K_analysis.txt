@@ -25,6 +25,8 @@ Silent Periods (>15 min): 8 totaling 5.2 hours
 
 TIME BREAKDOWN:
   Total Log Duration: 22.9 hours
+  First QSO: 00:07
+  Last QSO: 23:03
   Active Operating Time: 17.2 hours
   Silent/Gap Time: 5.8 hours
     - Long gaps (>15 min): 5.2 hours
