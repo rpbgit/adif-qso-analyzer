@@ -61,42 +61,42 @@ HOURLY QSO RATES:
 
 OPERATOR SESSIONS:
 ----------------------------------------
-Operator: 9ZV @ Station: HAL 9000
+Operator: 9ZV @ Station: W9ZV-X230
   Operating Time: 5.8 hours (6 sessions)
   First QSO: 02:04
   Last QSO: 19:12
   Sessions:
-    1. 02:04 - 03:08 (1.1h)
-    2. 03:50 - 05:07 (1.3h)
-    3. 06:04 - 06:51 (0.8h)
-    4. 07:09 - 08:14 (1.1h)
-    5. 08:39 - 09:14 (0.6h)
-    6. 18:12 - 19:12 (1.0h)
+    1. 02:04 - 03:08 (1.1h, 63 QSOs)
+    2. 03:50 - 05:07 (1.3h, 76 QSOs)
+    3. 06:04 - 06:51 (0.8h, 41 QSOs)
+    4. 07:09 - 08:14 (1.1h, 35 QSOs)
+    5. 08:39 - 09:14 (0.6h, 18 QSOs)
+    6. 18:12 - 19:12 (1.0h, 45 QSOs)
 
-Operator: KA9I @ Station: HAL 9000
+Operator: KA9I @ Station: W9ZV-X230
   Operating Time: 1.4 hours (1 sessions)
   First QSO: 14:20
   Last QSO: 15:42
   Sessions:
-    1. 14:20 - 15:42 (1.4h)
+    1. 14:20 - 15:42 (1.4h, 50 QSOs)
 
-Operator: UGX @ Station: HAL 9000
+Operator: UGX @ Station: W9ZV-X230
   Operating Time: 7.1 hours (5 sessions)
   First QSO: 00:07
   Last QSO: 23:03
   Sessions:
-    1. 00:07 - 01:36 (1.5h)
-    2. 01:57 - 02:02 (0.1h)
-    3. 15:50 - 17:57 (2.1h)
-    4. 19:19 - 20:46 (1.4h)
-    5. 21:07 - 23:03 (1.9h)
+    1. 00:07 - 01:36 (1.5h, 54 QSOs)
+    2. 01:57 - 02:02 (0.1h, 6 QSOs)
+    3. 15:50 - 17:57 (2.1h, 91 QSOs)
+    4. 19:19 - 20:46 (1.4h, 58 QSOs)
+    5. 21:07 - 23:03 (1.9h, 80 QSOs)
 
-Operator: VGO @ Station: HAL 9000
+Operator: VGO @ Station: W9ZV-X230
   Operating Time: 2.9 hours (1 sessions)
   First QSO: 10:18
   Last QSO: 13:14
   Sessions:
-    1. 10:18 - 13:14 (2.9h)
+    1. 10:18 - 13:14 (2.9h, 96 QSOs)
 
 SUMMARY:
   Total Operator Time: 17.2 hours across 13 sessions
@@ -107,22 +107,22 @@ Operator: 9ZV
   QSO Count: 278 (39.0% of total)
   Average Rate: 16.2 QSOs/hour
   Peak Rate: 62 QSOs/hour
-  Run: 45.3% | S&P: 54.7%
+  Run: 45.3% | S&P: 54.7% (accurate - all QSOs have frequency data)
 
 Operator: KA9I
   QSO Count: 50 (7.0% of total)
   Average Rate: 36.6 QSOs/hour
   Peak Rate: 38 QSOs/hour
-  Run: 100.0% | S&P: 0.0%
+  Run: 100.0% | S&P: 0.0% (accurate - all QSOs have frequency data)
 
 Operator: UGX
   QSO Count: 289 (40.5% of total)
   Average Rate: 12.6 QSOs/hour
   Peak Rate: 52 QSOs/hour
-  Run: 78.7% | S&P: 21.3%
+  Run: 78.7% | S&P: 21.3% (accurate - all QSOs have frequency data)
 
 Operator: VGO
   QSO Count: 96 (13.5% of total)
   Average Rate: 32.7 QSOs/hour
   Peak Rate: 40 QSOs/hour
-  Run: 0.0% | S&P: 100.0%
+  Run: 0.0% | S&P: 100.0% (accurate - all QSOs have frequency data)

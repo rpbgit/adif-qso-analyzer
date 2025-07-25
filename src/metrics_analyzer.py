@@ -789,9 +789,11 @@ class QSOMetrics:
                     report.append("  Sessions:")
                     for i, session in enumerate(session_data['sessions'], 1):
                         duration_hours = session['duration_minutes'] / 60.0
+                        # Count QSOs in this session
+                        session_qso_count = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station and session['start_time'] <= qso['time'] <= session['end_time'])
                         report.append(f"    {i}. {QSOMetrics._format_time(session['start_time'])} - "
                                     f"{QSOMetrics._format_time(session['end_time'])} "
-                                    f"({duration_hours:.1f}h)")
+                                    f"({duration_hours:.1f}h, {session_qso_count} QSOs)")
                 report.append("")
             
             # Add total operator time summary
