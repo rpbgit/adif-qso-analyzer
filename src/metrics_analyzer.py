@@ -826,18 +826,18 @@ class QSOMetrics:
         for operator, stats in sorted(operator_stats.items()):
             # Calculate contribution percentage
             contribution_pct = (stats['qso_count'] / total_qsos) * 100 if total_qsos > 0 else 0
-            
+
             report.append(f"Operator: {operator}")
             report.append(f"  QSO Count: {stats['qso_count']} ({contribution_pct:.1f}% of total)")
             report.append(f"  Average Rate: {stats['avg_rate_per_hour']:.1f} QSOs/hour")
             report.append(f"  Peak Rate: {stats['peak_rate_per_hour']:.0f} QSOs/hour")
-            
-            # Show Run/S&P with reliability indicator
-            if stats['sp_analysis_reliable']:
-                report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% (accurate - all QSOs have frequency data)")
+
+            # Confidence indicator for S&P/run mode
+            if stats.get('missing_freq_count', 0) == 0:
+                confidence = "(accurate - all QSOs have frequency data)"
             else:
-                missing_count = stats['missing_freq_count']
-                report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% (unreliable - {missing_count} QSOs missing frequency)")
+                confidence = f"(unreliable - {stats['missing_freq_count']} QSOs missing frequency)"
+            report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
             report.append("")
         
         return "\n".join(report)
