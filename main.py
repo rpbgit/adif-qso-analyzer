@@ -25,7 +25,7 @@ def main() -> None:
         filename = sys.argv[1]
     else:
         # Default filename - change this to your exported ADIF
-        filename = "data/FieldDay2025_K9K.adi"
+        filename = "data/FieldDay.adi"
     
     # Check if file exists
     if not os.path.exists(filename):
