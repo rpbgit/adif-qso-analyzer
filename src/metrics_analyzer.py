@@ -679,84 +679,12 @@ class QSOMetrics:
     def generate_summary_report(qsos: List[Dict[str, Any]]) -> str:
         """
         Generate a comprehensive summary report with date and time for all time fields.
-        
-        Args:
-            qsos: List of QSO records
-        Returns:
-            Formatted summary report as string
         """
         sp_percentage = QSOMetrics.calculate_sp_percentage(qsos)
         operator_stats = QSOMetrics.calculate_qso_rates(qsos)
         total_qsos = len(qsos)
-
-        # Analyze data quality
         data_quality = QSOMetrics.analyze_data_quality(qsos)
-
-        # Calculate overall log statistics
         log_stats = QSOMetrics._calculate_log_statistics(qsos)
-
-
-        # Helper: Convert YYYYMMDD to YYYY-MM-DD
-        def adif_date_to_iso(date_str):
-            if date_str and len(date_str) == 8 and date_str.isdigit():
-                return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
-            return date_str
-
-        # Helper: Extract qso_date from a QSO dict, case-insensitive
-        def get_qso_date(qso: Dict[str, Any]) -> str:
-            for k in qso.keys():
-                if k.lower() == 'qso_date':
-                    return qso[k]
-            return None
-
-        # Build a lookup for (qso_date, time) -> date, using case-insensitive qso_date
-        date_time_lookup = {}
-        for qso in qsos:
-            if 'time' in qso:
-                qso_date_val = get_qso_date(qso)
-                if qso_date_val:
-                    key = (adif_date_to_iso(qso_date_val), qso['time'])
-                    date_time_lookup[key] = adif_date_to_iso(qso_date_val)
-
-        def get_date_for_time(time, prefer_first=False, prefer_last=False):
-            # Try to find all QSOs with this time and a qso_date
-            matches = [qso for qso in qsos if qso.get('time') == time and get_qso_date(qso)]
-            if not matches:
-                return None
-            # If only one match, return its date
-            if len(matches) == 1:
-                return adif_date_to_iso(get_qso_date(matches[0]))
-            # If prefer_first or prefer_last, return accordingly
-            if prefer_first:
-                return adif_date_to_iso(get_qso_date(matches[0]))
-            if prefer_last:
-                return adif_date_to_iso(get_qso_date(matches[-1]))
-            # Default: return first
-            return adif_date_to_iso(get_qso_date(matches[0]))
-
-        # Helper to get both date and time for a QSO (for unique mapping)
-        def get_date_and_time_for_time(time: int, prefer_first: bool = False, prefer_last: bool = False):
-            # Find all QSOs with this time and a qso_date
-            matches = [qso for qso in qsos if qso.get('time') == time and get_qso_date(qso)]
-            if not matches:
-                return (None, time)
-            # Always sort by (date, time) as integers for true chronological order
-            matches.sort(key=lambda q: (int(get_qso_date(q)), int(q['time']) if q.get('time') is not None else 0))
-            if prefer_first:
-                # Earliest (date, time)
-                min_qso = matches[0]
-                date = adif_date_to_iso(get_qso_date(min_qso))
-                time_val = min_qso['time']
-                return (date, time_val)
-            if prefer_last:
-                # Latest (date, time)
-                max_qso = matches[-1]
-                date = adif_date_to_iso(get_qso_date(max_qso))
-                time_val = max_qso['time']
-                return (date, time_val)
-            # Default: return the earliest (date, time)
-            date = adif_date_to_iso(get_qso_date(matches[0]))
-            return (date, matches[0]['time'])
 
         report = []
         report.append("=" * 60)
@@ -764,118 +692,184 @@ class QSOMetrics:
         report.append("=" * 60)
         report.append(f"Total QSOs: {total_qsos}")
 
-        # Add data quality warnings before S&P percentage
+        report.extend(QSOMetrics._generate_data_quality_section(data_quality, sp_percentage))
+        report.extend(QSOMetrics._generate_log_statistics_section(log_stats, qsos))
+        report.extend(QSOMetrics._generate_band_mode_breakdown(qsos))
+        report.extend(QSOMetrics._generate_section_table(qsos, total_qsos))
+        report.extend(QSOMetrics._generate_country_table(qsos, total_qsos))
+        report.extend(QSOMetrics._generate_operator_sessions_section(log_stats.get('operator_sessions', {}), qsos))
+        report.extend(QSOMetrics._generate_operator_statistics(operator_stats, total_qsos))
+
+        return "\n".join(report)
+
+    @staticmethod
+    def _generate_operator_sessions_section(operator_sessions: Dict[str, Any], qsos: List[Dict[str, Any]]) -> list:
+        section = []
+        if not operator_sessions:
+            return section
+        section.append("")
+        section.append("OPERATOR SESSIONS:")
+        section.append("-" * 40)
+        for operator_station_key, session_data in sorted(operator_sessions.items()):
+            operator = session_data['operator']
+            station = session_data['station']
+            total_hours = session_data['total_minutes'] / 60.0
+            total_qsos_for_station = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station)
+            section.append(f"Operator: {operator} @ Station: {station}")
+            section.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions, {total_qsos_for_station} QSOs)")
+            section.append(f"  First QSO: {QSOMetrics._format_time(session_data['first_qso'])}")
+            section.append(f"  Last QSO: {QSOMetrics._format_time(session_data['last_qso'])}")
+            if session_data['sessions']:
+                section.append("  Sessions:")
+                for i, session in enumerate(session_data['sessions'], 1):
+                    duration_hours = session['duration_minutes'] / 60.0
+                    session_qso_count = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station and session['start_time'] <= qso['time'] <= session['end_time'])
+                    section.append(f"    {i}. {QSOMetrics._format_time(session['start_time'])} - "
+                                   f"{QSOMetrics._format_time(session['end_time'])} "
+                                   f"({duration_hours:.1f}h, {session_qso_count} QSOs)")
+            section.append("")
+        total_operator_minutes = sum(session_data['total_minutes'] for session_data in operator_sessions.values())
+        total_operator_hours = total_operator_minutes / 60.0
+        total_sessions = sum(session_data['session_count'] for session_data in operator_sessions.values())
+        section.append("SUMMARY:")
+        section.append(f"  Total Operator Time: {total_operator_hours:.1f} hours across {total_sessions} sessions")
+        single_qso_sessions = 0
+        for session_data in operator_sessions.values():
+            for session in session_data['sessions']:
+                if session['duration_minutes'] <= 2:
+                    single_qso_sessions += 1
+        if total_sessions > 0 and single_qso_sessions > total_sessions * 0.3:
+            section.append("")
+            section.append("MULTI-STATION OPERATION DETECTED:")
+            section.append(f"  {single_qso_sessions} short sessions detected (likely single QSOs)")
+            section.append("  This suggests a merged log from multiple logging computers.")
+            section.append("  Session times represent minimum estimates for multi-station operations.")
+        section.append("")
+        return section
+
+    @staticmethod
+    def _generate_data_quality_section(data_quality: Dict[str, Any], sp_percentage: float) -> list:
+        section = []
         if not data_quality['sp_analysis_reliable']:
             if data_quality['missing_frequency'] > 0:
-                report.append("WARNING: Frequency data missing - S&P analysis unreliable")
-                report.append(f"   Missing frequency in {data_quality['missing_frequency']} QSOs")
-                report.append("   All QSOs classified as RUN mode due to lack of frequency data")
+                section.append("WARNING: Frequency data missing - S&P analysis unreliable")
+                section.append(f"   Missing frequency in {data_quality['missing_frequency']} QSOs")
+                section.append("   All QSOs classified as RUN mode due to lack of frequency data")
             elif data_quality['frequencies_estimated']:
-                report.append("WARNING: Frequencies estimated from band data - S&P analysis may be unreliable")
-                report.append(f"   {data_quality['estimated_frequencies']} frequencies estimated from band center")
-
-        report.append(f"S&P Percentage: {sp_percentage:.1f}%")
-        report.append("")
-
-        # Add data quality section
-        report.append("DATA QUALITY:")
-        report.append("-" * 40)
-        report.append(f"Frequency Coverage: {data_quality['freq_coverage']:.1f}%")
+                section.append("WARNING: Frequencies estimated from band data - S&P analysis may be unreliable")
+                section.append(f"   {data_quality['estimated_frequencies']} frequencies estimated from band center")
+        section.append(f"S&P Percentage: {sp_percentage:.1f}%")
+        section.append("")
+        section.append("DATA QUALITY:")
+        section.append("-" * 40)
+        section.append(f"Frequency Coverage: {data_quality['freq_coverage']:.1f}%")
         if data_quality['missing_frequency'] > 0:
-            report.append(f"Missing Frequency: {data_quality['missing_frequency']} QSOs")
+            section.append(f"Missing Frequency: {data_quality['missing_frequency']} QSOs")
         if data_quality['estimated_frequencies'] > 0:
-            report.append(f"Estimated Frequencies: {data_quality['estimated_frequencies']} QSOs")
+            section.append(f"Estimated Frequencies: {data_quality['estimated_frequencies']} QSOs")
         if data_quality['missing_band'] > 0:
-            report.append(f"Missing Band: {data_quality['missing_band']} QSOs")
+            section.append(f"Missing Band: {data_quality['missing_band']} QSOs")
         if data_quality['missing_time'] > 0:
-            report.append(f"Missing Time: {data_quality['missing_time']} QSOs")
-
+            section.append(f"Missing Time: {data_quality['missing_time']} QSOs")
         if data_quality['sp_analysis_reliable']:
-            report.append("STATUS: S&P analysis reliable")
+            section.append("STATUS: S&P analysis reliable")
         else:
-            report.append("STATUS: S&P analysis unreliable due to missing/estimated frequency data")
+            section.append("STATUS: S&P analysis unreliable due to missing/estimated frequency data")
+        section.append("")
+        return section
 
-        report.append("")
-
-        # Add overall log statistics
-        report.append("LOG STATISTICS:")
-        report.append("-" * 40)
-        report.append(f"Total Log Duration: {log_stats['total_hours']:.1f} hours")
-        report.append(f"Overall QSO Rate: {log_stats['overall_rate']:.1f} QSOs/hour")
-
-        # Show all gaps
+    @staticmethod
+    def _generate_log_statistics_section(log_stats: Dict[str, Any], qsos: List[Dict[str, Any]]) -> list:
+        section = []
+        def adif_date_to_iso(date_str):
+            if date_str and len(date_str) == 8 and date_str.isdigit():
+                return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
+            return date_str
+        def get_qso_date(qso: Dict[str, Any]) -> str:
+            for k in qso.keys():
+                if k.lower() == 'qso_date':
+                    return qso[k]
+            return None
+        def get_date_and_time_for_time(time: int, prefer_first: bool = False, prefer_last: bool = False):
+            matches = [qso for qso in qsos if qso.get('time') == time and get_qso_date(qso)]
+            if not matches:
+                return (None, time)
+            matches.sort(key=lambda q: (int(get_qso_date(q)), int(q['time']) if q.get('time') is not None else 0))
+            if prefer_first:
+                min_qso = matches[0]
+                date = adif_date_to_iso(get_qso_date(min_qso))
+                time_val = min_qso['time']
+                return (date, time_val)
+            if prefer_last:
+                max_qso = matches[-1]
+                date = adif_date_to_iso(get_qso_date(max_qso))
+                time_val = max_qso['time']
+                return (date, time_val)
+            date = adif_date_to_iso(get_qso_date(matches[0]))
+            return (date, matches[0]['time'])
+        section.append("LOG STATISTICS:")
+        section.append("-" * 40)
+        section.append(f"Total Log Duration: {log_stats['total_hours']:.1f} hours")
+        section.append(f"Overall QSO Rate: {log_stats['overall_rate']:.1f} QSOs/hour")
         if log_stats['gaps']:
             total_silent_minutes = sum(gap['duration_min'] for gap in log_stats['gaps'])
             total_silent_hours = total_silent_minutes / 60.0
-            report.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])} totaling {total_silent_hours:.1f} hours")
+            section.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])} totaling {total_silent_hours:.1f} hours")
             for i, gap in enumerate(log_stats['gaps'], 1):
                 start_date, start_time = get_date_and_time_for_time(gap['start'], prefer_first=True)
                 end_date, end_time = get_date_and_time_for_time(gap['end'], prefer_last=True)
-                report.append(f"  Gap {i}: {gap['duration_min']:.0f} minutes "
+                section.append(f"  Gap {i}: {gap['duration_min']:.0f} minutes "
                               f"({QSOMetrics._format_time(start_time, start_date)} - {QSOMetrics._format_time(end_time, end_date)})")
         else:
-            report.append("Silent Periods (>15 min): None")
-
-        # Add corrected time accounting
+            section.append("Silent Periods (>15 min): None")
         if 'time_accounting' in log_stats:
             time_acc = log_stats['time_accounting']
-            report.append("")
-            report.append("TIME BREAKDOWN:")
-            report.append(f"  Total Log Duration: {time_acc['total_log_hours']:.1f} hours")
-            # Find the true earliest and latest (date, time) QSO in the log
+            section.append("")
+            section.append("TIME BREAKDOWN:")
+            section.append(f"  Total Log Duration: {time_acc['total_log_hours']:.1f} hours")
             qso_with_date_and_time = [
                 (get_qso_date(qso), qso['time'])
                 for qso in qsos
                 if get_qso_date(qso) and qso.get('time') is not None
             ]
             if qso_with_date_and_time:
-                # Sort by (date, time) as integers
                 qso_with_date_and_time.sort(key=lambda x: (int(x[0]), int(x[1])))
                 first_date, first_time = qso_with_date_and_time[0]
                 last_date, last_time = qso_with_date_and_time[-1]
-                report.append(f"  First QSO: {QSOMetrics._format_time(int(first_time), adif_date_to_iso(first_date))}")
-                report.append(f"  Last QSO: {QSOMetrics._format_time(int(last_time), adif_date_to_iso(last_date))}")
-            report.append(f"  Active Operating Time: {time_acc['active_operating_hours']:.1f} hours")
-            report.append(f"  Silent/Gap Time: {time_acc['all_gap_hours']:.1f} hours")
-            report.append(f"    - Long gaps (>15 min): {time_acc['long_gap_hours']:.1f} hours")
-            report.append(f"    - Short gaps (<15 min): {time_acc['short_gap_hours']:.1f} hours")
-
-            # Add reconciliation check
+                section.append(f"  First QSO: {QSOMetrics._format_time(int(first_time), adif_date_to_iso(first_date))}")
+                section.append(f"  Last QSO: {QSOMetrics._format_time(int(last_time), adif_date_to_iso(last_date))}")
+            section.append(f"  Active Operating Time: {time_acc['active_operating_hours']:.1f} hours")
+            section.append(f"  Silent/Gap Time: {time_acc['all_gap_hours']:.1f} hours")
+            section.append(f"    - Long gaps (>15 min): {time_acc['long_gap_hours']:.1f} hours")
+            section.append(f"    - Short gaps (<15 min): {time_acc['short_gap_hours']:.1f} hours")
             total_check = time_acc['active_operating_hours'] + time_acc['all_gap_hours']
-            report.append(f"  Reconciliation: {total_check:.1f} hours")
-
+            section.append(f"  Reconciliation: {total_check:.1f} hours")
             if time_acc['reconciliation_check']:
-                report.append("  STATUS: Time accounting reconciled")
+                section.append("  STATUS: Time accounting reconciled")
             else:
-                report.append(f"  WARNING: Time discrepancy: {time_acc['reconciliation_diff']:.1f} hours")
+                section.append(f"  WARNING: Time discrepancy: {time_acc['reconciliation_diff']:.1f} hours")
+        section.append("")
+        return section
 
-        # Add Total Contacts by Band and Mode table
-        # Build band/mode counts
+    @staticmethod
+    def _generate_band_mode_breakdown(qsos: List[Dict[str, Any]]) -> list:
+        section = []
         band_mode_counts = {}
         band_set = set()
         mode_set = set()
         for qso in qsos:
             band = qso.get('band', 'UNKNOWN')
-            # Use the mode as parsed, preserving case
             mode = qso.get('mode', 'UNKNOWN')
             band_set.add(band)
             mode_set.add(mode)
             if band not in band_mode_counts:
                 band_mode_counts[band] = {}
             band_mode_counts[band][mode] = band_mode_counts[band].get(mode, 0) + 1
-
-        # Preferred band order for contesting
         preferred_band_order = ['160M', '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', '4M', '2M', '1.25M', '70CM']
         bands = [b for b in preferred_band_order if b in band_set]
-        # Add any bands not in preferred order
         bands += sorted(b for b in band_set if b not in bands and b != 'UNKNOWN')
-        # If 'UNKNOWN' present, put it last
         if 'UNKNOWN' in band_set:
             bands.append('UNKNOWN')
-
-        # Preferred mode order for contesting
-        # Only use the actual modes present in the data, but map for display
-        # Map modes for display: 'CW', 'SSB'/'PHONE'/'FM'/'AM' -> 'Phone', digital modes -> 'DIG'
         mode_display_map = {}
         for m in mode_set:
             m_upper = m.upper()
@@ -887,22 +881,15 @@ class QSOMetrics:
                 mode_display_map[m] = 'DIG'
             else:
                 mode_display_map[m] = m
-
-        # Build the set of display modes present
         display_modes = set(mode_display_map.values())
-        # Use preferred order, then any others
         modes = [m for m in ['CW', 'Phone', 'DIG'] if m in display_modes]
         modes += sorted(m for m in display_modes if m not in modes)
-
-        # Remap band_mode_counts to use display modes
         band_mode_summary = {}
         for band in bands:
             band_mode_summary[band] = {}
             for mode in mode_set:
                 display_mode = mode_display_map[mode]
                 band_mode_summary[band][display_mode] = band_mode_summary[band].get(display_mode, 0) + band_mode_counts.get(band, {}).get(mode, 0)
-
-        # Calculate totals
         band_totals = {}
         mode_totals = {m: 0 for m in modes}
         grand_total = 0
@@ -914,12 +901,10 @@ class QSOMetrics:
                 mode_totals[mode] += count
             band_totals[band] = band_total
             grand_total += band_total
-
-        # Table formatting
-        report.append("")
-        report.append("BAND/MODE BREAKDOWN:")
-        report.append(" Band |   CW | Phone |  Dig | Total |   %")
-        report.append("------|------|-------|------|-------|----")
+        section.append("")
+        section.append("BAND/MODE BREAKDOWN:")
+        section.append(" Band |   CW | Phone |  Dig | Total |   %")
+        section.append("------|------|-------|------|-------|----")
         for band in bands:
             cw = band_mode_summary[band].get('CW', 0)
             phone = band_mode_summary[band].get('Phone', 0)
@@ -927,39 +912,38 @@ class QSOMetrics:
             total = band_totals[band]
             pct = int(round((total / grand_total * 100))) if grand_total > 0 else 0
             line = f"{band:>6} | {cw:4d} | {phone:5d} | {dig:4d} | {total:5d} | {pct:3d}"
-            report.append(line.replace('\n', ''))
-        # Separator
-        report.append("------|------|-------|------|-------|----")
-        # Total row
+            section.append(line.replace('\n', ''))
+        section.append("------|------|-------|------|-------|----")
         total_row = f"Total | {mode_totals.get('CW', 0):4d} | {mode_totals.get('Phone', 0):5d} | {mode_totals.get('DIG', 0):4d} | {grand_total:5d} | 100"
-        report.append(total_row)
+        section.append(total_row)
+        return section
 
-        # Add Total Contacts by Section table
-        # Count QSOs by section (case-insensitive, fallback to 'UNKNOWN')
+    @staticmethod
+    def _generate_section_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
+        section = []
         section_counts = {}
         for qso in qsos:
-            section = qso.get('section', 'UNKNOWN')
-            if section is None:
-                section = 'UNKNOWN'
-            section = str(section).strip().upper()
-            section_counts[section] = section_counts.get(section, 0) + 1
-        # Remove empty string key if present
+            sec = qso.get('section', 'UNKNOWN')
+            if sec is None:
+                sec = 'UNKNOWN'
+            sec = str(sec).strip().upper()
+            section_counts[sec] = section_counts.get(sec, 0) + 1
         if '' in section_counts:
             section_counts['UNKNOWN'] = section_counts.get('UNKNOWN', 0) + section_counts['']
             del section_counts['']
-        # Sort sections by count descending, then alphabetically
         sorted_sections = sorted(section_counts.items(), key=lambda x: (-x[1], x[0]))
-        report.append("")
-        report.append("Total Contacts by Section:")
-        report.append(" Section     Total     %")
-        report.append(" -------     -----   ---")
-        for section, count in sorted_sections:
+        section.append("")
+        section.append("Total Contacts by Section:")
+        section.append(" Section     Total     %")
+        section.append(" -------     -----   ---")
+        for sec, count in sorted_sections:
             pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
-            report.append(f" {section:<7}     {count:5d}   {pct:3d}")
+            section.append(f" {sec:<7}     {count:5d}   {pct:3d}")
+        return section
 
-
-        # Add Total Contacts by Country table
-        # Count QSOs by country (case-insensitive, fallback to 'UNKNOWN')
+    @staticmethod
+    def _generate_country_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
+        section = []
         country_counts = {}
         for qso in qsos:
             country = qso.get('country', 'UNKNOWN')
@@ -971,93 +955,28 @@ class QSOMetrics:
             country_counts['UNKNOWN'] = country_counts.get('UNKNOWN', 0) + country_counts['']
             del country_counts['']
         sorted_countries = sorted(country_counts.items(), key=lambda x: (-x[1], x[0]))
-        report.append("")
-        report.append("Total Contacts by Country:")
-        report.append(" Country                      Total     %")
-        report.append(" -------                      -----   ---")
+        section.append("")
+        section.append("Total Contacts by Country:")
+        section.append(" Country                      Total     %")
+        section.append(" -------                      -----   ---")
         for country, count in sorted_countries:
             pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
-            report.append(f" {country:<28} {count:7d} {pct:6d}")
-        report.append(f" Total = {len(sorted_countries)}\n")
+            section.append(f" {country:<28} {count:7d} {pct:6d}")
+        section.append(f" Total = {len(sorted_countries)}\n")
+        return section
 
-        # Add hourly rates
-        if log_stats['hourly_rates']:
-            report.append("")
-            report.append("HOURLY QSO RATES:")
-            report.append("-" * 40)
-            for hour_data in log_stats['hourly_rates']:
-                hour = hour_data['hour']
-                count = hour_data['qso_count']
-                report.append(f"  {hour:02d}:00-{hour:02d}:59: {count} QSOs")
-
-        # Add operator sessions
-        if log_stats['operator_sessions']:
-            report.append("")
-            report.append("OPERATOR SESSIONS:")
-            report.append("-" * 40)
-            for operator_station_key, session_data in sorted(log_stats['operator_sessions'].items()):
-                operator = session_data['operator']
-                station = session_data['station']
-                total_hours = session_data['total_minutes'] / 60.0
-                # Count total QSOs for this operator@station
-                total_qsos_for_station = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station)
-                report.append(f"Operator: {operator} @ Station: {station}")
-                report.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions, {total_qsos_for_station} QSOs)")
-                # First/last QSO (time only)
-                report.append(f"  First QSO: {QSOMetrics._format_time(session_data['first_qso'])}")
-                report.append(f"  Last QSO: {QSOMetrics._format_time(session_data['last_qso'])}")
-
-                # Show individual sessions
-                if session_data['sessions']:
-                    report.append("  Sessions:")
-                    for i, session in enumerate(session_data['sessions'], 1):
-                        duration_hours = session['duration_minutes'] / 60.0
-                        # Count QSOs in this session
-                        session_qso_count = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station and session['start_time'] <= qso['time'] <= session['end_time'])
-                        report.append(f"    {i}. {QSOMetrics._format_time(session['start_time'])} - "
-                                    f"{QSOMetrics._format_time(session['end_time'])} "
-                                    f"({duration_hours:.1f}h, {session_qso_count} QSOs)")
-                report.append("")
-
-            # Add total operator time summary
-            total_operator_minutes = sum(session_data['total_minutes'] 
-                                       for session_data in log_stats['operator_sessions'].values())
-            total_operator_hours = total_operator_minutes / 60.0
-            total_sessions = sum(session_data['session_count'] 
-                               for session_data in log_stats['operator_sessions'].values())
-
-            report.append("SUMMARY:")
-            report.append(f"  Total Operator Time: {total_operator_hours:.1f} hours across {total_sessions} sessions")
-
-            # Add multi-station explanation if many short sessions detected
-            single_qso_sessions = 0
-            for session_data in log_stats['operator_sessions'].values():
-                for session in session_data['sessions']:
-                    if session['duration_minutes'] <= 2:  # Likely single QSO with minimum duration applied
-                        single_qso_sessions += 1
-
-            if single_qso_sessions > total_sessions * 0.3:  # >30% are very short sessions
-                report.append("")
-                report.append("MULTI-STATION OPERATION DETECTED:")
-                report.append(f"  {single_qso_sessions} short sessions detected (likely single QSOs)")
-                report.append("  This suggests a merged log from multiple logging computers.")
-                report.append("  Session times represent minimum estimates for multi-station operations.")
-
-        report.append("")
-
-        report.append("OPERATOR STATISTICS:")
-        report.append("-" * 40)
-
+    @staticmethod
+    def _generate_operator_statistics(operator_stats: Dict[str, Any], total_qsos: int) -> list:
+        section = []
+        section.append("")
+        section.append("OPERATOR STATISTICS:")
+        section.append("-" * 40)
         for operator, stats in sorted(operator_stats.items()):
-            # Calculate contribution percentage
             contribution_pct = (stats['qso_count'] / total_qsos) * 100 if total_qsos > 0 else 0
-
-            report.append(f"Operator: {operator}")
-            report.append(f"  QSO Count: {stats['qso_count']} ({contribution_pct:.1f}% of total)")
-            report.append(f"  Average Rate: {stats['avg_rate_per_hour']:.1f} QSOs/hour")
-            report.append(f"  Peak Rate: {stats['peak_rate_per_hour']:.0f} QSOs/hour")
-
-            # Confidence indicator for S&P/run mode, with percent missing
+            section.append(f"Operator: {operator}")
+            section.append(f"  QSO Count: {stats['qso_count']} ({contribution_pct:.1f}% of total)")
+            section.append(f"  Average Rate: {stats['avg_rate_per_hour']:.1f} QSOs/hour")
+            section.append(f"  Peak Rate: {stats['peak_rate_per_hour']:.0f} QSOs/hour")
             missing_count = stats.get('missing_freq_count', 0)
             qso_count = stats.get('qso_count', 0)
             if qso_count > 0:
@@ -1068,7 +987,6 @@ class QSOMetrics:
                 confidence = "(accurate - all QSOs have frequency data)"
             else:
                 confidence = f"(unreliable - {missing_count} QSOs missing frequency, {missing_pct:.1f}% of QSOs)"
-            report.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
-            report.append("")
-
-        return "\n".join(report)
+            section.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
+            section.append("")
+        return section
