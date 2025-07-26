@@ -10,7 +10,8 @@ class QSORecord:
     
     def __init__(self, freq: Optional[float] = None, band: Optional[str] = None, 
                  time_on: Optional[int] = None, operator: Optional[str] = None,
-                 call: Optional[str] = None, station: Optional[str] = None) -> None:
+                 call: Optional[str] = None, station: Optional[str] = None,
+                 qso_date: Optional[str] = None) -> None:
         """
         Initialize a QSO record.
         
@@ -28,6 +29,7 @@ class QSORecord:
         self.operator = operator
         self.call = call
         self.station = station
+        self.qso_date = qso_date
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert QSO record to dictionary."""
@@ -37,7 +39,8 @@ class QSORecord:
             'time': self.time_on,
             'operator': self.operator,
             'call': self.call,
-            'station': self.station
+            'station': self.station,
+            'qso_date': self.qso_date
         }
 
 
@@ -92,10 +95,25 @@ class ADIFParser:
         except IOError as e:
             raise IOError(f"Error reading ADIF file: {e}")
         
-        # Filter out incomplete records and sort by time
+        # Filter out incomplete records
         qsos = [q for q in qsos if q['freq'] is not None or q['band'] is not None]
-        qsos = sorted(qsos, key=lambda x: x['time'] if x['time'] is not None else 0)
-        
+        # Sort by date and time (if available), fallback to time only if no date
+        def qso_sort_key(q: Dict[str, Any]):
+            """
+            Sort QSOs by qso_date (YYYYMMDD as string, zero-padded) and time (HHMMSS as string, zero-padded).
+            Ensures correct chronological order even across multiple days.
+            """
+            date = q.get('qso_date')
+            # Always use 8 digits for date, fallback to '00000000'
+            date_str = str(date) if date and str(date).isdigit() and len(str(date)) == 8 else '00000000'
+            # Always use 6 digits for time, fallback to '000000'
+            time_val = q.get('time')
+            if time_val is None:
+                time_str = '000000'
+            else:
+                time_str = f"{int(time_val):06d}"
+            return (date_str, time_str)
+        qsos = sorted(qsos, key=qso_sort_key)
         return qsos
     
     @staticmethod
@@ -112,61 +130,65 @@ class ADIFParser:
         # Extract frequency (MHz float) - keep as None if missing
         freq_match = re.search(r'<freq:(\d+)>([\d\.]+)', buffer, re.IGNORECASE)
         freq = float(freq_match.group(2)) if freq_match else None
-        
+
         # Extract band (string)
         band_match = re.search(r'<band:(\d+)>([^<]+)', buffer, re.IGNORECASE)
         band = band_match.group(2) if band_match else None
-        
+
+        # Extract QSO_DATE (YYYYMMDD)
+        qso_date_match = re.search(r'<qso_date:(\d+)>(\d{8})', buffer, re.IGNORECASE)
+        qso_date = qso_date_match.group(2) if qso_date_match else None
+
         # DON'T estimate frequency here - let the metrics analyzer handle it
         # This preserves the distinction between actual and missing frequency data
-        
+
         # Extract time_on (HHMMSS format)
         time_match = re.search(r'<time_on:(\d+)>(\d+)', buffer, re.IGNORECASE)
         time_on = int(time_match.group(2)) if time_match else None
-        
+
         # Extract operator call sign
         operator_match = re.search(r'<operator:(\d+)>([^<]+)', buffer, re.IGNORECASE)
         operator = operator_match.group(2).strip() if operator_match else None
-        
+
         # Use "Mr. Nobody" if operator is None or empty
         if not operator or operator == "":
             operator = "Mr. Nobody"
-        
+
         # Extract station/computer name - try multiple field names
         station = None
         station_patterns = [
             r'<n3fjp_computername:(\d+)>([^<]+)',     # N3FJP logging software
             r'<app_n1mm_netbiosname:(\d+)>([^<]+)',   # N1MM+ logging software
         ]
-        
+
         for pattern in station_patterns:
             station_match = re.search(pattern, buffer, re.IGNORECASE)
             if station_match:
                 station = station_match.group(2).strip()
                 break
-        
+
         # Use "HAL 9000" if station is None or empty
         if not station or station == "":
             station = "HAL 9000"
-        
+
         # Extract contacted station call sign - try multiple field names
         call = None
         call_patterns = [
             r'<call:(\d+)>([^<]+)',           # Standard call field
             r'<callsign:(\d+)>([^<]+)',       # Alternative field
         ]
-        
+
         for pattern in call_patterns:
             call_match = re.search(pattern, buffer, re.IGNORECASE)
             if call_match:
                 call = call_match.group(2).strip()
                 break
-        
+
         # Use "UNKNOWN" if no call sign found
         if not call:
             call = "UNKNOWN"
-        
-        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator, call=call, station=station)
+
+        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator, call=call, station=station, qso_date=qso_date)
 
     @staticmethod
     def _estimate_frequency_from_band(band: str) -> float:

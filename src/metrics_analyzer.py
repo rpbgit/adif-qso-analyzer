@@ -693,14 +693,68 @@ class QSOMetrics:
         # Calculate overall log statistics
         log_stats = QSOMetrics._calculate_log_statistics(qsos)
 
-        # Try to extract date for each QSO (assume 'date' key in QSO dict, else None)
-        # Use the date of the first QSO for log-wide fields
-        date_lookup = {}
+
+        # Helper: Convert YYYYMMDD to YYYY-MM-DD
+        def adif_date_to_iso(date_str):
+            if date_str and len(date_str) == 8 and date_str.isdigit():
+                return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
+            return date_str
+
+        # Helper: Extract qso_date from a QSO dict, case-insensitive
+        def get_qso_date(qso: Dict[str, Any]) -> str:
+            for k in qso.keys():
+                if k.lower() == 'qso_date':
+                    return qso[k]
+            return None
+
+        # Build a lookup for (qso_date, time) -> date, using case-insensitive qso_date
+        date_time_lookup = {}
         for qso in qsos:
-            if 'time' in qso and 'date' in qso:
-                date_lookup[qso['time']] = qso['date']
-        def get_date_for_time(time):
-            return date_lookup.get(time, None)
+            if 'time' in qso:
+                qso_date_val = get_qso_date(qso)
+                if qso_date_val:
+                    key = (adif_date_to_iso(qso_date_val), qso['time'])
+                    date_time_lookup[key] = adif_date_to_iso(qso_date_val)
+
+        def get_date_for_time(time, prefer_first=False, prefer_last=False):
+            # Try to find all QSOs with this time and a qso_date
+            matches = [qso for qso in qsos if qso.get('time') == time and get_qso_date(qso)]
+            if not matches:
+                return None
+            # If only one match, return its date
+            if len(matches) == 1:
+                return adif_date_to_iso(get_qso_date(matches[0]))
+            # If prefer_first or prefer_last, return accordingly
+            if prefer_first:
+                return adif_date_to_iso(get_qso_date(matches[0]))
+            if prefer_last:
+                return adif_date_to_iso(get_qso_date(matches[-1]))
+            # Default: return first
+            return adif_date_to_iso(get_qso_date(matches[0]))
+
+        # Helper to get both date and time for a QSO (for unique mapping)
+        def get_date_and_time_for_time(time: int, prefer_first: bool = False, prefer_last: bool = False):
+            # Find all QSOs with this time and a qso_date
+            matches = [qso for qso in qsos if qso.get('time') == time and get_qso_date(qso)]
+            if not matches:
+                return (None, time)
+            # Always sort by (date, time) as integers for true chronological order
+            matches.sort(key=lambda q: (int(get_qso_date(q)), int(q['time']) if q.get('time') is not None else 0))
+            if prefer_first:
+                # Earliest (date, time)
+                min_qso = matches[0]
+                date = adif_date_to_iso(get_qso_date(min_qso))
+                time_val = min_qso['time']
+                return (date, time_val)
+            if prefer_last:
+                # Latest (date, time)
+                max_qso = matches[-1]
+                date = adif_date_to_iso(get_qso_date(max_qso))
+                time_val = max_qso['time']
+                return (date, time_val)
+            # Default: return the earliest (date, time)
+            date = adif_date_to_iso(get_qso_date(matches[0]))
+            return (date, matches[0]['time'])
 
         report = []
         report.append("=" * 60)
@@ -753,10 +807,10 @@ class QSOMetrics:
             total_silent_hours = total_silent_minutes / 60.0
             report.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])} totaling {total_silent_hours:.1f} hours")
             for i, gap in enumerate(log_stats['gaps'], 1):
-                start_date = get_date_for_time(gap['start'])
-                end_date = get_date_for_time(gap['end'])
+                start_date, start_time = get_date_and_time_for_time(gap['start'], prefer_first=True)
+                end_date, end_time = get_date_and_time_for_time(gap['end'], prefer_last=True)
                 report.append(f"  Gap {i}: {gap['duration_min']:.0f} minutes "
-                              f"({QSOMetrics._format_time(gap['start'], start_date)} - {QSOMetrics._format_time(gap['end'], end_date)})")
+                              f"({QSOMetrics._format_time(start_time, start_date)} - {QSOMetrics._format_time(end_time, end_date)})")
         else:
             report.append("Silent Periods (>15 min): None")
 
@@ -766,12 +820,19 @@ class QSOMetrics:
             report.append("")
             report.append("TIME BREAKDOWN:")
             report.append(f"  Total Log Duration: {time_acc['total_log_hours']:.1f} hours")
-            # Add first and last QSO times with date
-            if 'start_time' in log_stats and 'end_time' in log_stats:
-                start_date = get_date_for_time(log_stats['start_time'])
-                end_date = get_date_for_time(log_stats['end_time'])
-                report.append(f"  First QSO: {QSOMetrics._format_time(log_stats['start_time'], start_date)}")
-                report.append(f"  Last QSO: {QSOMetrics._format_time(log_stats['end_time'], end_date)}")
+            # Find the true earliest and latest (date, time) QSO in the log
+            qso_with_date_and_time = [
+                (get_qso_date(qso), qso['time'])
+                for qso in qsos
+                if get_qso_date(qso) and qso.get('time') is not None
+            ]
+            if qso_with_date_and_time:
+                # Sort by (date, time) as integers
+                qso_with_date_and_time.sort(key=lambda x: (int(x[0]), int(x[1])))
+                first_date, first_time = qso_with_date_and_time[0]
+                last_date, last_time = qso_with_date_and_time[-1]
+                report.append(f"  First QSO: {QSOMetrics._format_time(int(first_time), adif_date_to_iso(first_date))}")
+                report.append(f"  Last QSO: {QSOMetrics._format_time(int(last_time), adif_date_to_iso(last_date))}")
             report.append(f"  Active Operating Time: {time_acc['active_operating_hours']:.1f} hours")
             report.append(f"  Silent/Gap Time: {time_acc['all_gap_hours']:.1f} hours")
             report.append(f"    - Long gaps (>15 min): {time_acc['long_gap_hours']:.1f} hours")
