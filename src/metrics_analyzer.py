@@ -5,6 +5,8 @@ from collections import defaultdict
 
 
 class QSOMetrics:
+
+    
     """Calculate various QSO metrics and statistics."""
     
     @staticmethod
@@ -846,6 +848,137 @@ class QSOMetrics:
                 report.append("  STATUS: Time accounting reconciled")
             else:
                 report.append(f"  WARNING: Time discrepancy: {time_acc['reconciliation_diff']:.1f} hours")
+
+        # Add Total Contacts by Band and Mode table
+        # Build band/mode counts
+        band_mode_counts = {}
+        band_set = set()
+        mode_set = set()
+        for qso in qsos:
+            band = qso.get('band', 'UNKNOWN')
+            # Use the mode as parsed, preserving case
+            mode = qso.get('mode', 'UNKNOWN')
+            band_set.add(band)
+            mode_set.add(mode)
+            if band not in band_mode_counts:
+                band_mode_counts[band] = {}
+            band_mode_counts[band][mode] = band_mode_counts[band].get(mode, 0) + 1
+
+        # Preferred band order for contesting
+        preferred_band_order = ['160M', '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', '4M', '2M', '1.25M', '70CM']
+        bands = [b for b in preferred_band_order if b in band_set]
+        # Add any bands not in preferred order
+        bands += sorted(b for b in band_set if b not in bands and b != 'UNKNOWN')
+        # If 'UNKNOWN' present, put it last
+        if 'UNKNOWN' in band_set:
+            bands.append('UNKNOWN')
+
+        # Preferred mode order for contesting
+        # Only use the actual modes present in the data, but map for display
+        # Map modes for display: 'CW', 'SSB'/'PHONE'/'FM'/'AM' -> 'Phone', digital modes -> 'DIG'
+        mode_display_map = {}
+        for m in mode_set:
+            m_upper = m.upper()
+            if m_upper == 'CW':
+                mode_display_map[m] = 'CW'
+            elif m_upper in ['SSB', 'PHONE', 'FM', 'AM']:
+                mode_display_map[m] = 'Phone'
+            elif m_upper in ['FT8', 'FT4', 'PSK31', 'DIGITAL', 'DIG']:
+                mode_display_map[m] = 'DIG'
+            else:
+                mode_display_map[m] = m
+
+        # Build the set of display modes present
+        display_modes = set(mode_display_map.values())
+        # Use preferred order, then any others
+        modes = [m for m in ['CW', 'Phone', 'DIG'] if m in display_modes]
+        modes += sorted(m for m in display_modes if m not in modes)
+
+        # Remap band_mode_counts to use display modes
+        band_mode_summary = {}
+        for band in bands:
+            band_mode_summary[band] = {}
+            for mode in mode_set:
+                display_mode = mode_display_map[mode]
+                band_mode_summary[band][display_mode] = band_mode_summary[band].get(display_mode, 0) + band_mode_counts.get(band, {}).get(mode, 0)
+
+        # Calculate totals
+        band_totals = {}
+        mode_totals = {m: 0 for m in modes}
+        grand_total = 0
+        for band in bands:
+            band_total = 0
+            for mode in modes:
+                count = band_mode_summary.get(band, {}).get(mode, 0)
+                band_total += count
+                mode_totals[mode] += count
+            band_totals[band] = band_total
+            grand_total += band_total
+
+        # Table formatting
+        report.append("")
+        report.append("BAND/MODE BREAKDOWN:")
+        report.append(" Band |   CW | Phone |  Dig | Total |   %")
+        report.append("------|------|-------|------|-------|----")
+        for band in bands:
+            cw = band_mode_summary[band].get('CW', 0)
+            phone = band_mode_summary[band].get('Phone', 0)
+            dig = band_mode_summary[band].get('DIG', 0)
+            total = band_totals[band]
+            pct = int(round((total / grand_total * 100))) if grand_total > 0 else 0
+            line = f"{band:>6} | {cw:4d} | {phone:5d} | {dig:4d} | {total:5d} | {pct:3d}"
+            report.append(line.replace('\n', ''))
+        # Separator
+        report.append("------|------|-------|------|-------|----")
+        # Total row
+        total_row = f"Total | {mode_totals.get('CW', 0):4d} | {mode_totals.get('Phone', 0):5d} | {mode_totals.get('DIG', 0):4d} | {grand_total:5d} | 100"
+        report.append(total_row)
+
+        # Add Total Contacts by Section table
+        # Count QSOs by section (case-insensitive, fallback to 'UNKNOWN')
+        section_counts = {}
+        for qso in qsos:
+            section = qso.get('section', 'UNKNOWN')
+            if section is None:
+                section = 'UNKNOWN'
+            section = str(section).strip().upper()
+            section_counts[section] = section_counts.get(section, 0) + 1
+        # Remove empty string key if present
+        if '' in section_counts:
+            section_counts['UNKNOWN'] = section_counts.get('UNKNOWN', 0) + section_counts['']
+            del section_counts['']
+        # Sort sections by count descending, then alphabetically
+        sorted_sections = sorted(section_counts.items(), key=lambda x: (-x[1], x[0]))
+        report.append("")
+        report.append("Total Contacts by Section:")
+        report.append(" Section     Total     %")
+        report.append(" -------     -----   ---")
+        for section, count in sorted_sections:
+            pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
+            report.append(f" {section:<7}     {count:5d}   {pct:3d}")
+
+
+        # Add Total Contacts by Country table
+        # Count QSOs by country (case-insensitive, fallback to 'UNKNOWN')
+        country_counts = {}
+        for qso in qsos:
+            country = qso.get('country', 'UNKNOWN')
+            if country is None:
+                country = 'UNKNOWN'
+            country = str(country).strip().upper()
+            country_counts[country] = country_counts.get(country, 0) + 1
+        if '' in country_counts:
+            country_counts['UNKNOWN'] = country_counts.get('UNKNOWN', 0) + country_counts['']
+            del country_counts['']
+        sorted_countries = sorted(country_counts.items(), key=lambda x: (-x[1], x[0]))
+        report.append("")
+        report.append("Total Contacts by Country:")
+        report.append(" Country                      Total     %")
+        report.append(" -------                      -----   ---")
+        for country, count in sorted_countries:
+            pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
+            report.append(f" {country:<28} {count:7d} {pct:6d}")
+        report.append(f" Total = {len(sorted_countries)}\n")
 
         # Add hourly rates
         if log_stats['hourly_rates']:

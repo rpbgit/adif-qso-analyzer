@@ -44,6 +44,7 @@ def main() -> None:
             return
         
         # Generate and display comprehensive report
+        #report = QSOMetrics.generate_contest_summary_report(qsos)
         report = QSOMetrics.generate_summary_report(qsos)
         print(report)
         

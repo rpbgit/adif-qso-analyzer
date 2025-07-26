@@ -11,7 +11,8 @@ class QSORecord:
     def __init__(self, freq: Optional[float] = None, band: Optional[str] = None, 
                  time_on: Optional[int] = None, operator: Optional[str] = None,
                  call: Optional[str] = None, station: Optional[str] = None,
-                 qso_date: Optional[str] = None) -> None:
+                 qso_date: Optional[str] = None, mode: Optional[str] = None,
+                 section: Optional[str] = None, country: Optional[str] = None) -> None:
         """
         Initialize a QSO record.
         
@@ -30,6 +31,9 @@ class QSORecord:
         self.call = call
         self.station = station
         self.qso_date = qso_date
+        self.mode = mode
+        self.section = section
+        self.country = country
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert QSO record to dictionary."""
@@ -40,7 +44,10 @@ class QSORecord:
             'operator': self.operator,
             'call': self.call,
             'station': self.station,
-            'qso_date': self.qso_date
+            'qso_date': self.qso_date,
+            'mode': self.mode,
+            'section': self.section,
+            'country': self.country
         }
 
 
@@ -130,6 +137,9 @@ class ADIFParser:
         # Extract frequency (MHz float) - keep as None if missing
         freq_match = re.search(r'<freq:(\d+)>([\d\.]+)', buffer, re.IGNORECASE)
         freq = float(freq_match.group(2)) if freq_match else None
+        # Extract country (string, if present)
+        country_match = re.search(r'<country:(\d+)>([^<]+)', buffer, re.IGNORECASE)
+        country = country_match.group(2).strip() if country_match else None
 
         # Extract band (string)
         band_match = re.search(r'<band:(\d+)>([^<]+)', buffer, re.IGNORECASE)
@@ -138,6 +148,24 @@ class ADIFParser:
         # Extract QSO_DATE (YYYYMMDD)
         qso_date_match = re.search(r'<qso_date:(\d+)>(\d{8})', buffer, re.IGNORECASE)
         qso_date = qso_date_match.group(2) if qso_date_match else None
+
+        # Extract mode (string)
+        mode_match = re.search(r'<mode:(\d+)>([^<]+)', buffer, re.IGNORECASE)
+        mode = mode_match.group(2).strip() if mode_match else None
+
+
+        # Extract section (ARRL_Sect, N3FJP_SPCNum, or section)
+        section = None
+        section_patterns = [
+            r'<ARRL_Sect:(\d+)>([^<]+)',
+            r'<N3FJP_SPCNum:(\d+)>([^<]+)',
+            r'<section:(\d+)>([^<]+)'
+        ]
+        for pattern in section_patterns:
+            match = re.search(pattern, buffer, re.IGNORECASE)
+            if match:
+                section = match.group(2).strip()
+                break
 
         # DON'T estimate frequency here - let the metrics analyzer handle it
         # This preserves the distinction between actual and missing frequency data
@@ -188,7 +216,54 @@ class ADIFParser:
         if not call:
             call = "UNKNOWN"
 
-        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator, call=call, station=station, qso_date=qso_date)
+        # If country is not present, infer from call prefix (very basic mapping)
+        if not country or country == "":
+            country = ADIFParser._infer_country_from_call(call)
+
+        return QSORecord(freq=freq, band=band, time_on=time_on, operator=operator, call=call, station=station, qso_date=qso_date, mode=mode, section=section, country=country)
+    @staticmethod
+    def _infer_country_from_call(call: str) -> str:
+        """
+        Infer country from callsign prefix (very basic, not exhaustive).
+        """
+        if not call or call == "UNKNOWN":
+            return "UNKNOWN"
+        call = call.upper()
+        # USA
+        if call.startswith(('K', 'W', 'N')) and len(call) > 1 and call[1].isdigit():
+            return "UNITED STATES"
+        # Canada
+        if call.startswith('VE') or call.startswith('VA'):
+            return "CANADA"
+        # Mexico
+        if call.startswith('XE'):
+            return "MEXICO"
+        # Japan
+        if call.startswith('JA'):
+            return "JAPAN"
+        # Germany
+        if call.startswith('DL'):
+            return "GERMANY"
+        # England/UK
+        if call.startswith(('G', 'M')) and len(call) > 1 and call[1].isdigit():
+            return "ENGLAND"
+        # Australia
+        if call.startswith('VK'):
+            return "AUSTRALIA"
+        # New Zealand
+        if call.startswith('ZL'):
+            return "NEW ZEALAND"
+        # Italy
+        if call.startswith('I') and len(call) > 1 and call[1].isdigit():
+            return "ITALY"
+        # France
+        if call.startswith('F') and len(call) > 1 and call[1].isdigit():
+            return "FRANCE"
+        # Spain
+        if call.startswith('EA'):
+            return "SPAIN"
+        # Default
+        return "UNKNOWN"
 
     @staticmethod
     def _estimate_frequency_from_band(band: str) -> float:
