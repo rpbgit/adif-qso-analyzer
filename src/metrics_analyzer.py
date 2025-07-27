@@ -8,28 +8,33 @@ class QSOMetrics:
     @staticmethod
     def _format_section_table_side_by_side(sections: list) -> list:
         """
-        Format the section table into two columns, side by side.
+        Format the section table into three columns, side by side.
         Each section is a tuple: (section, count, percent)
         """
-        # Split into two columns
-        mid = (len(sections) + 1) // 2
-        left = sections[:mid]
-        right = sections[mid:]
-        # Prepare header
-        # Consistent column widths: section=7, total=5, pct=3, 2 spaces between columns
-        # Data rows: ' {sec:<7}  {cnt:>5} {pct:>3}'
-        header = " Section   Total   % | Section   Total   %"
-        sep    = " -------   ----- --- | -------   ----- ---"
-        # The data rows use: ' {sec:<7}  {cnt:>5} {pct:>3}'
+        # Split into three columns
+        n = len(sections)
+        col_len = (n + 2) // 3
+        col1 = sections[:col_len]
+        col2 = sections[col_len:2*col_len]
+        col3 = sections[2*col_len:]
+        # Pad columns to equal length
+        max_len = max(len(col1), len(col2), len(col3))
+        if len(col1) < max_len:
+            col1 += [("", "", "")] * (max_len - len(col1))
+        if len(col2) < max_len:
+            col2 += [("", "", "")] * (max_len - len(col2))
+        if len(col3) < max_len:
+            col3 += [("", "", "")] * (max_len - len(col3))
+        # Prepare header and separator for three columns
+        header = " Section   Total   % | Section   Total   % | Section   Total   %"
+        sep    = " -------   ----- --- | -------   ----- --- | -------   ----- ---"
         lines = [header, sep]
-        # Pad right column if needed
-        if len(right) < len(left):
-            right += [("", "", "")] * (len(left) - len(right))
         # Combine rows with fixed widths
-        for (lsec, lcnt, lpct), (rsec, rcnt, rpct) in zip(left, right):
-            lstr = f" {lsec:<9} {lcnt:>5} {lpct:>3}"
-            rstr = f" {rsec:<9} {rcnt:>5} {rpct:>3}" if rsec else ""
-            lines.append(f"{lstr} |{rstr}")
+        for (c1, c2, c3) in zip(col1, col2, col3):
+            lstr = f" {c1[0]:<9} {c1[1]:>5} {c1[2]:>3}"
+            mstr = f" {c2[0]:<9} {c2[1]:>5} {c2[2]:>3}" if c2[0] else ""
+            rstr = f" {c3[0]:<9} {c3[1]:>5} {c3[2]:>3}" if c3[0] else ""
+            lines.append(f"{lstr} |{mstr} |{rstr}")
         return lines
     @staticmethod
     def _find_silent_periods_by_computer(qsos: List[Dict[str, Any]], min_gap_minutes: int = 15) -> Dict[str, list]:
