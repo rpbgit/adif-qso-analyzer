@@ -5,6 +5,76 @@ from collections import defaultdict
 
 
 class QSOMetrics:
+    @staticmethod
+    def _format_section_table_side_by_side(sections: list) -> list:
+        """
+        Format the section table into two columns, side by side.
+        Each section is a tuple: (section, count, percent)
+        """
+        # Split into two columns
+        mid = (len(sections) + 1) // 2
+        left = sections[:mid]
+        right = sections[mid:]
+        # Prepare header
+        # Consistent column widths: section=7, total=5, pct=3, 2 spaces between columns
+        # Data rows: ' {sec:<7}  {cnt:>5} {pct:>3}'
+        header = " Section   Total   % | Section   Total   %"
+        sep    = " -------   ----- --- | -------   ----- ---"
+        # The data rows use: ' {sec:<7}  {cnt:>5} {pct:>3}'
+        lines = [header, sep]
+        # Pad right column if needed
+        if len(right) < len(left):
+            right += [("", "", "")] * (len(left) - len(right))
+        # Combine rows with fixed widths
+        for (lsec, lcnt, lpct), (rsec, rcnt, rpct) in zip(left, right):
+            lstr = f" {lsec:<9} {lcnt:>5} {lpct:>3}"
+            rstr = f" {rsec:<9} {rcnt:>5} {rpct:>3}" if rsec else ""
+            lines.append(f"{lstr} |{rstr}")
+        return lines
+    @staticmethod
+    def _find_silent_periods_by_computer(qsos: List[Dict[str, Any]], min_gap_minutes: int = 15) -> Dict[str, list]:
+        """
+        Find silent periods (gaps) for each computer in the log.
+        Returns a dict: computer_name -> list of gap dicts
+        """
+        from collections import defaultdict
+        computer_gaps = {}
+        qsos_by_computer = defaultdict(list)
+        for qso in qsos:
+            computer = qso.get('station', 'UNKNOWN')  # Use 'station' as computer name
+            if qso.get('time') is not None:
+                qsos_by_computer[computer].append(qso)
+        for computer, comp_qsos in qsos_by_computer.items():
+            times = sorted(qso['time'] for qso in comp_qsos if qso.get('time') is not None)
+            computer_gaps[computer] = QSOMetrics._find_silent_periods(times, min_gap_minutes)
+        return computer_gaps
+
+    @staticmethod
+    def _generate_computer_gap_section(qsos: List[Dict[str, Any]], min_gap_minutes: int = 15) -> list:
+        """
+        Generate a report section listing silent periods for each computer.
+        """
+        section = []
+        computer_gaps = QSOMetrics._find_silent_periods_by_computer(qsos, min_gap_minutes)
+        section.append("")
+        section.append(f"SILENT PERIODS BY COMPUTER (>{min_gap_minutes} min):")
+        section.append("-" * 40)
+        any_gaps = False
+        for computer, gaps in sorted(computer_gaps.items()):
+            section.append(f"Computer: {computer}")
+            if not gaps:
+                section.append("  No silent periods detected.")
+                continue
+            any_gaps = True
+            for i, gap in enumerate(gaps, 1):
+                start = gap['start']
+                end = gap['end']
+                duration = gap['duration_min']
+                section.append(f"  Gap {i}: {duration:.0f} minutes ({QSOMetrics._format_time(start)} - {QSOMetrics._format_time(end)})")
+        if not any_gaps:
+            section.append("No silent periods detected for any computer.")
+        section.append("")
+        return section
 
     
     """Calculate various QSO metrics and statistics."""
@@ -697,10 +767,36 @@ class QSOMetrics:
         report.extend(QSOMetrics._generate_band_mode_breakdown(qsos))
         report.extend(QSOMetrics._generate_section_table(qsos, total_qsos))
         report.extend(QSOMetrics._generate_country_table(qsos, total_qsos))
+        report.extend(QSOMetrics._generate_operator_table(qsos, total_qsos))
         report.extend(QSOMetrics._generate_operator_sessions_section(log_stats.get('operator_sessions', {}), qsos))
         report.extend(QSOMetrics._generate_operator_statistics(operator_stats, total_qsos))
+        report.extend(QSOMetrics._generate_computer_gap_section(qsos, min_gap_minutes=15))
 
         return "\n".join(report)
+    @staticmethod
+    def _generate_operator_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
+        section = []
+        operator_counts = {}
+        for qso in qsos:
+            operator = qso.get('operator', 'UNKNOWN')
+            if operator is None:
+                operator = 'UNKNOWN'
+            operator = str(operator).strip().upper()
+            operator_counts[operator] = operator_counts.get(operator, 0) + 1
+        if '' in operator_counts:
+            operator_counts['UNKNOWN'] = operator_counts.get('UNKNOWN', 0) + operator_counts['']
+            del operator_counts['']
+        sorted_operators = sorted(operator_counts.items(), key=lambda x: (-x[1], x[0]))
+        section.append("")
+        section.append("Total Contacts by Operator:")
+        section.append(" Operator       Total     %")
+        section.append(" --------       -----   ---")
+        for operator, count in sorted_operators:
+            pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
+            section.append(f" {operator:<12} {count:7d} {pct:5d}")
+        total_contacts = sum(count for _, count in sorted_operators)
+        section.append(f" Total = {total_contacts}\n")
+        return section
 
     @staticmethod
     def _generate_operator_sessions_section(operator_sessions: Dict[str, Any], qsos: List[Dict[str, Any]]) -> list:
@@ -920,7 +1016,6 @@ class QSOMetrics:
 
     @staticmethod
     def _generate_section_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
-        section = []
         section_counts = {}
         for qso in qsos:
             sec = qso.get('section', 'UNKNOWN')
@@ -932,14 +1027,15 @@ class QSOMetrics:
             section_counts['UNKNOWN'] = section_counts.get('UNKNOWN', 0) + section_counts['']
             del section_counts['']
         sorted_sections = sorted(section_counts.items(), key=lambda x: (-x[1], x[0]))
-        section.append("")
-        section.append("Total Contacts by Section:")
-        section.append(" Section     Total     %")
-        section.append(" -------     -----   ---")
-        for sec, count in sorted_sections:
-            pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
-            section.append(f" {sec:<7}     {count:5d}   {pct:3d}")
-        return section
+        # Prepare tuples for formatting
+        section_tuples = [
+            (sec, count, int(round((count / total_qsos * 100))) if total_qsos > 0 else 0)
+            for sec, count in sorted_sections
+        ]
+        lines = [""]
+        lines.append("Total Contacts by Section:")
+        lines += QSOMetrics._format_section_table_side_by_side(section_tuples)
+        return lines
 
     @staticmethod
     def _generate_country_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
