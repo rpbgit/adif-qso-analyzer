@@ -11,7 +11,7 @@ class QSOMetrics:
         Format the section table into three columns, side by side.
         Each section is a tuple: (section, count, percent)
         """
-        # Split into three columns
+        # Split into three columns 
         n = len(sections)
         col_len = (n + 2) // 3
         col1 = sections[:col_len]
