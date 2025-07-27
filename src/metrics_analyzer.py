@@ -71,6 +71,7 @@ class QSOMetrics:
                 end = gap['end']
                 duration = gap['duration_min']
                 section.append(f"  Gap {i}: {duration:.0f} minutes ({QSOMetrics._format_time(start)} - {QSOMetrics._format_time(end)})")
+            section.append("")
         if not any_gaps:
             section.append("No silent periods detected for any computer.")
         section.append("")
@@ -910,7 +911,7 @@ class QSOMetrics:
         if log_stats['gaps']:
             total_silent_minutes = sum(gap['duration_min'] for gap in log_stats['gaps'])
             total_silent_hours = total_silent_minutes / 60.0
-            section.append(f"Silent Periods (>15 min): {len(log_stats['gaps'])} totaling {total_silent_hours:.1f} hours")
+            section.append(f"Full Log Silent Periods (>15 min): {len(log_stats['gaps'])} totaling {total_silent_hours:.1f} hours")
             for i, gap in enumerate(log_stats['gaps'], 1):
                 start_date, start_time = get_date_and_time_for_time(gap['start'], prefer_first=True)
                 end_date, end_time = get_date_and_time_for_time(gap['end'], prefer_last=True)
@@ -1053,8 +1054,8 @@ class QSOMetrics:
         sorted_countries = sorted(country_counts.items(), key=lambda x: (-x[1], x[0]))
         section.append("")
         section.append("Total Contacts by Country:")
-        section.append(" Country                      Total     %")
-        section.append(" -------                      -----   ---")
+        section.append(" Country                        Total      %")
+        section.append(" -------                        -----    ---")
         for country, count in sorted_countries:
             pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
             section.append(f" {country:<28} {count:7d} {pct:6d}")
