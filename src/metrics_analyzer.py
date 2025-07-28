@@ -1005,42 +1005,64 @@ class QSOMetrics:
             grand_total += band_total
         section.append("")
         section.append("BAND/MODE BREAKDOWN:")
-        section.append(" Band |   CW | Phone |  Dig | Total |   %")
-        section.append("------|------|-------|------|-------|----")
+        section.append(" Band  |   CW  | Phone |  Dig  | Total |   %")
+        section.append("-------|-------|-------|-------|-------|-----")
         for band in bands:
             cw = band_mode_summary[band].get('CW', 0)
             phone = band_mode_summary[band].get('Phone', 0)
             dig = band_mode_summary[band].get('DIG', 0)
             total = band_totals[band]
             pct = int(round((total / grand_total * 100))) if grand_total > 0 else 0
-            line = f"{band:>6} | {cw:4d} | {phone:5d} | {dig:4d} | {total:5d} | {pct:3d}"
-            section.append(line.replace('\n', ''))
-        section.append("------|------|-------|------|-------|----")
-        total_row = f"Total | {mode_totals.get('CW', 0):4d} | {mode_totals.get('Phone', 0):5d} | {mode_totals.get('DIG', 0):4d} | {grand_total:5d} | 100"
+            line = f" {band:<5} | {cw:5d} | {phone:5d} | {dig:5d} | {total:5d} | {pct:3d}"
+            section.append(line)
+        section.append("-------|-------|-------|-------|-------|-----")
+        total_row = f" Total | {mode_totals.get('CW', 0):5d} | {mode_totals.get('Phone', 0):5d} | {mode_totals.get('DIG', 0):5d} | {grand_total:5d} | 100"
         section.append(total_row)
         return section
 
     @staticmethod
     def _generate_section_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
-        section_counts = {}
+        arrl_sections = [
+            'EMA', 'WMA', 'NH', 'VT', 'ME', 'RI', 'CT',
+            'NNY', 'ENY', 'WNY', 'NLI',
+            'SNJ', 'NNJ',
+            'EPA', 'WPA',
+            'DE', 'MD', 'DC', 'VA', 'WV',
+            'NC', 'SC', 'GA', 'FL', 'PR', 'VI', 'AL', 'MS', 'TN', 'KY',
+            'OH', 'MI', 'IN', 'WI',
+            'IL', 'MO', 'AR', 'LA', 'OK', 'TX',
+            'MN', 'IA', 'KS', 'NE', 'SD', 'ND',
+            'CO', 'WY', 'MT', 'UT', 'ID',
+            'AZ', 'NM',
+            'OR', 'WA', 'EWA', 'WWA',
+            'AK', 'NT',
+            'MAR', 'NL', 'QC', 'ON', 'MB', 'SK', 'AB', 'BC', 'NU', 'YT', 'NWT', 'LB', 'PE', 'NS',
+            'SB', 'SCV', 'SJV', 'LAX', 'ORG', 'SDG', 'SV', 'SF',
+            'GTA', 'ONE', 'ONS'
+        ]  # Official ARRL sections: 84
+        assert len(arrl_sections) == 84, f"ARRL section list should have 84 entries, found {len(arrl_sections)}"
+
+        section_counts: Dict[str, int] = {}
         for qso in qsos:
             sec = qso.get('section', 'UNKNOWN')
             if sec is None:
                 sec = 'UNKNOWN'
             sec = str(sec).strip().upper()
             section_counts[sec] = section_counts.get(sec, 0) + 1
-        if '' in section_counts:
-            section_counts['UNKNOWN'] = section_counts.get('UNKNOWN', 0) + section_counts['']
-            del section_counts['']
-        sorted_sections = sorted(section_counts.items(), key=lambda x: (-x[1], x[0]))
-        # Prepare tuples for formatting
-        section_tuples = [
-            (sec, count, int(round((count / total_qsos * 100))) if total_qsos > 0 else 0)
-            for sec, count in sorted_sections
-        ]
+        # Always show all ARRL sections, even if not worked
+        section_tuples = []
+        for sec in arrl_sections:
+            count = section_counts.get(sec, 0)
+            pct = int(round((count / total_qsos * 100))) if total_qsos > 0 else 0
+            section_tuples.append((sec, count, pct))
+        # Sort by count descending, then section name ascending
+        section_tuples_sorted = sorted(section_tuples, key=lambda x: (-x[1], x[0]))
+        # Calculate worked_count independently
+        worked_count = sum(1 for sec in arrl_sections if section_counts.get(sec, 0) > 0)
         lines = [""]
-        lines.append("Total Contacts by Section:")
-        lines += QSOMetrics._format_section_table_side_by_side(section_tuples)
+        lines.append("Total Contacts by Section (sorted):")
+        lines += QSOMetrics._format_section_table_side_by_side(section_tuples_sorted)
+        lines.append(f"Unique Sections Worked: {worked_count} of {len(arrl_sections)} ({(worked_count / len(arrl_sections) * 100):.1f}%)")
         return lines
 
     @staticmethod
@@ -1092,3 +1114,4 @@ class QSOMetrics:
             section.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
             section.append("")
         return section
+
