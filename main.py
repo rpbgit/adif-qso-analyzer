@@ -11,8 +11,8 @@ from typing import List, Dict, Any
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from adif_parser import ADIFParser
-from metrics_analyzer import QSOMetrics
+from src.adif_parser import ADIFParser
+from src.metrics_analyzer import QSOMetrics
 
 
 def main() -> None:
