@@ -6,6 +6,93 @@ from collections import defaultdict
 
 class QSOMetrics:
     @staticmethod
+    def _generate_data_quality_section(data_quality: Dict[str, Any], sp_percentage: float) -> list:
+        """
+        Generate a section of the report summarizing data quality metrics.
+        Args:
+            data_quality: Dictionary with data quality metrics
+            sp_percentage: Overall Search & Pounce percentage
+        Returns:
+            List of strings for the report section
+        """
+        section = []
+        section.append("")
+        section.append("DATA QUALITY ANALYSIS:")
+        section.append("-" * 40)
+        total_qsos = data_quality.get('total_qsos', 0)
+        missing_freq = data_quality.get('missing_frequency', 0)
+        missing_band = data_quality.get('missing_band', 0)
+        missing_time = data_quality.get('missing_time', 0)
+        freq_coverage = data_quality.get('freq_coverage', 0.0)
+        estimated_freqs = data_quality.get('estimated_frequencies', 0)
+        sp_reliable = data_quality.get('sp_analysis_reliable', False)
+        freqs_estimated = data_quality.get('frequencies_estimated', False)
+        section.append(f"QSOs analyzed: {total_qsos}")
+        section.append(f"QSOs missing frequency: {missing_freq}")
+        section.append(f"QSOs missing band: {missing_band}")
+        section.append(f"QSOs missing time: {missing_time}")
+        section.append(f"Frequency coverage: {freq_coverage:.1f}% of QSOs have frequency data")
+        section.append(f"QSOs with estimated (band center) frequencies: {estimated_freqs}")
+        section.append(f"Search & Pounce (S&P) percentage: {sp_percentage:.1f}%")
+        if not sp_reliable:
+            section.append("WARNING: S&P analysis may be unreliable due to missing or estimated frequency data.")
+        elif freqs_estimated:
+            section.append("NOTE: Many frequencies are estimated from band center; S&P analysis may be less accurate.")
+        else:
+            section.append("S&P analysis is considered reliable.")
+        section.append("")
+        return section
+    @staticmethod
+    def calculate_sp_percentage(qsos: List[Dict[str, Any]]) -> float:
+        """
+        Calculate the Search & Pounce (S&P) percentage for the log.
+        S&P is estimated by counting frequency jumps > 200 Hz between consecutive QSOs on the same band.
+        Returns the S&P percentage as a float (0-100).
+        """
+        s_and_p = 0
+        total = 0
+        prev = None
+
+        # Band center frequencies for estimation when needed
+        band_freq_map = {
+            '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
+            '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
+            '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
+        }
+
+        for qso in qsos:
+            if prev is not None:
+                # Check if same band
+                if qso.get('BAND') == prev.get('BAND'):
+                    # Get frequencies, estimating from band if missing
+                    current_freq = qso.get('FREQ')
+                    if (current_freq == '' or current_freq is None) and qso.get('BAND'):
+                        current_freq = band_freq_map.get(qso.get('BAND', '').upper().strip(), 14.200)
+                    prev_freq = prev.get('FREQ')
+                    if (prev_freq == '' or prev_freq is None) and prev.get('BAND'):
+                        prev_freq = band_freq_map.get(prev.get('BAND', '').upper().strip(), 14.200)
+                    # Convert frequency values to float if possible
+                    try:
+                        if current_freq is not None:
+                            current_freq = float(current_freq)
+                        if prev_freq is not None:
+                            prev_freq = float(prev_freq)
+                    except (ValueError, TypeError):
+                        current_freq = None
+                        prev_freq = None
+                    # Only calculate if we have frequency data (actual or estimated)
+                    if current_freq is not None and prev_freq is not None:
+                        freq_diff = abs(current_freq - prev_freq)
+                        # Frequency change > 200 Hz indicates S&P
+                        if freq_diff > 0.000200:
+                            s_and_p += 1
+                        total += 1
+            prev = qso
+
+        if total == 0:
+            return 0.0
+        return 100.0 * s_and_p / total
+    @staticmethod
     def _format_section_table_side_by_side(sections: list) -> list:
         """
         Format the section table into three columns, side by side.
@@ -46,7 +133,7 @@ class QSOMetrics:
         computer_gaps = {}
         qsos_by_computer = defaultdict(list)
         for qso in qsos:
-            computer = qso.get('station', 'UNKNOWN')  # Use 'station' as computer name
+            computer = qso.get('STATION', 'UNKNOWN')  # Use 'station' as computer name
             if qso.get('TIME_ON') is not None:
                 qsos_by_computer[computer].append(qso)
         for computer, comp_qsos in qsos_by_computer.items():
@@ -61,84 +148,25 @@ class QSOMetrics:
         """
         section = []
         computer_gaps = QSOMetrics._find_silent_periods_by_computer(qsos, min_gap_minutes)
+        if not computer_gaps or all(len(gaps) == 0 for gaps in computer_gaps.values()):
+            section.append("")
+            section.append("SILENT PERIODS BY COMPUTER: None detected (no gaps > {} min)".format(min_gap_minutes))
+            return section
+
         section.append("")
         section.append(f"SILENT PERIODS BY COMPUTER (>{min_gap_minutes} min):")
         section.append("-" * 40)
-        any_gaps = False
         for computer, gaps in sorted(computer_gaps.items()):
-            section.append(f"Computer: {computer}")
             if not gaps:
-                section.append("  No silent periods detected.")
                 continue
-            any_gaps = True
+            section.append(f"Computer/Station: {computer}")
             for i, gap in enumerate(gaps, 1):
-                start = gap['start']
-                end = gap['end']
+                start = QSOMetrics._format_time(gap['start'])
+                end = QSOMetrics._format_time(gap['end'])
                 duration = gap['duration_min']
-                section.append(f"  Gap {i}: {duration:.0f} minutes ({QSOMetrics._format_time(start)} - {QSOMetrics._format_time(end)})")
+                section.append(f"  Gap {i}: {duration:.0f} minutes ({start} - {end})")
             section.append("")
-        if not any_gaps:
-            section.append("No silent periods detected for any computer.")
-        section.append("")
         return section
-
-    
-    """Calculate various QSO metrics and statistics."""
-    
-    @staticmethod
-    def calculate_sp_percentage(qsos: List[Dict[str, Any]]) -> float:
-        """
-        Calculate Search & Pounce percentage.
-        
-        Args:
-            qsos: List of QSO records
-            
-        Returns:
-            S&P percentage as a float
-        """
-        s_and_p = 0
-        total = 0
-        prev = None
-        
-        # Band center frequencies for estimation when needed
-        band_freq_map = {
-            '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
-            '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
-            '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
-        }
-        
-        for qso in qsos:
-            if prev is not None:
-                # Check if same band
-                if qso.get('BAND') == prev.get('BAND'):
-                    # Get frequencies, estimating from band if missing
-                    current_freq = qso.get('FREQ')
-                    if current_freq == '' and qso.get('BAND'):
-                        current_freq = band_freq_map.get(qso.get('BAND', '').upper().strip(), 14.200)
-                    prev_freq = prev.get('FREQ')
-                    if prev_freq == '' and prev.get('BAND'):
-                        prev_freq = band_freq_map.get(prev.get('BAND', '').upper().strip(), 14.200)
-                    # Convert frequency values to float if possible
-                    try:
-                        if current_freq is not None:
-                            current_freq = float(current_freq)
-                        if prev_freq is not None:
-                            prev_freq = float(prev_freq)
-                    except (ValueError, TypeError):
-                        current_freq = None
-                        prev_freq = None
-                    # Only calculate if we have frequency data (actual or estimated)
-                    if current_freq is not None and prev_freq is not None:
-                        freq_diff = abs(current_freq - prev_freq)
-                        # Frequency change > 200 Hz indicates S&P
-                        if freq_diff > 0.000200:
-                            s_and_p += 1
-                        total += 1
-            prev = qso
-        
-        if total == 0:
-            return 0.0
-        return 100.0 * s_and_p / total
     
     @staticmethod
     def calculate_qso_rates(qsos: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
@@ -164,14 +192,15 @@ class QSOMetrics:
         
         # Group QSOs by operator and collect times
         for qso in qsos:
-            operator = qso.get('operator', 'UNKNOWN')
+            operator = qso.get('OPERATOR', 'UNKNOWN')
             # Only use 'TIME_ON' (uppercase) as the canonical time field
             if 'TIME_ON' not in qso or qso['TIME_ON'] is None:
                 raise ValueError(f"QSO record is missing required 'TIME_ON' field: {qso}")
             operator_stats[operator]['qso_count'] += 1
             operator_stats[operator]['times'].append(qso['TIME_ON'])
-            # Track missing frequency data per operator
-            if qso.get('FREQ') is None:
+            # Track missing frequency data per operator (treat None or '' as missing)
+            freq_val = qso.get('FREQ')
+            if freq_val is None or freq_val == '':
                 operator_stats[operator]['missing_freq_count'] += 1
         
         # Calculate rates for each operator
@@ -268,7 +297,7 @@ class QSOMetrics:
         # Group QSOs by operator
         operator_qsos = defaultdict(list)
         for qso in qsos:
-            operator = qso.get('operator', 'UNKNOWN')
+            operator = qso.get('OPERATOR', 'UNKNOWN')
             operator_qsos[operator].append(qso)
         
         # Calculate S&P percentage for each operator
@@ -538,8 +567,11 @@ class QSOMetrics:
         # Group QSOs by operator + station combination
         operator_station_qsos = defaultdict(list)
         for qso in sorted_qsos:
-            operator = qso.get('operator', 'UNKNOWN')
-            station = qso.get('station', 'HAL 9000')
+            operator = qso.get('OPERATOR', 'UNKNOWN')
+            if operator is None:
+                operator = 'UNKNOWN'
+            operator = str(operator).strip().upper()
+            station = qso.get('STATION', 'HAL 9000')
             # Create unique key for operator@station
             operator_station_key = f"{operator}@{station}"
             operator_station_qsos[operator_station_key].append(qso)
@@ -555,7 +587,7 @@ class QSOMetrics:
             qsos_list.sort(key=lambda x: x['TIME_ON'])
             
             operator_sessions[operator_station_key] = {
-                'operator': operator,
+                'operator': operator,  # already uppercased above
                 'station': station,
                 'sessions': [],
                 'total_minutes': 0,
@@ -809,7 +841,7 @@ class QSOMetrics:
         section = []
         operator_counts = {}
         for qso in qsos:
-            operator = qso.get('operator', 'Mr. Nobody')
+            operator = qso.get('OPERATOR', 'Mr. Nobody')
             if operator is None:
                 operator = 'UNKNOWN'
             operator = str(operator).strip().upper()
@@ -838,10 +870,17 @@ class QSOMetrics:
         section.append("OPERATOR SESSIONS:")
         section.append("-" * 40)
         for operator_station_key, session_data in sorted(operator_sessions.items()):
-            operator = session_data['operator']
+            # Use uppercase for operator to match _generate_operator_table
+            operator = session_data.get('operator', 'UNKNOWN')
+            if operator is None:
+                operator = 'UNKNOWN'
+            operator = str(operator).strip().upper()
             station = session_data['station']
             total_hours = session_data['total_minutes'] / 60.0
-            total_qsos_for_station = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station)
+            total_qsos_for_station = sum(
+                1 for qso in qsos
+                if str(qso.get('OPERATOR', 'UNKNOWN')).strip().upper() == operator and qso.get('STATION', 'HAL 9000') == station
+            )
             section.append(f"Operator: {operator} @ Station: {station}")
             section.append(f"  Operating Time: {total_hours:.1f} hours ({session_data['session_count']} sessions, {total_qsos_for_station} QSOs)")
             section.append(f"  First QSO: {QSOMetrics._format_time(session_data['first_qso'])}")
@@ -850,7 +889,12 @@ class QSOMetrics:
                 section.append("  Sessions:")
                 for i, session in enumerate(session_data['sessions'], 1):
                     duration_hours = session['duration_minutes'] / 60.0
-                    session_qso_count = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station and session['start_time'] <= qso.get('TIME_ON', -1) <= session['end_time'])
+                    session_qso_count = sum(
+                        1 for qso in qsos
+                        if str(qso.get('OPERATOR', 'UNKNOWN')).strip().upper() == operator
+                        and qso.get('STATION', 'HAL 9000') == station
+                        and session['start_time'] <= qso.get('TIME_ON', -1) <= session['end_time']
+                    )
                     section.append(f"    {i}. {QSOMetrics._format_time(session['start_time'])} - "
                                    f"{QSOMetrics._format_time(session['end_time'])} "
                                    f"({duration_hours:.1f}h, {session_qso_count} QSOs)")
@@ -875,48 +919,23 @@ class QSOMetrics:
         return section
 
     @staticmethod
-    def _generate_data_quality_section(data_quality: Dict[str, Any], sp_percentage: float) -> list:
-        section = []
-        if not data_quality['sp_analysis_reliable']:
-            if data_quality['missing_frequency'] > 0:
-                section.append("WARNING: Frequency data missing - S&P analysis unreliable")
-                section.append(f"   Missing frequency in {data_quality['missing_frequency']} QSOs")
-                section.append("   All QSOs classified as RUN mode due to lack of frequency data")
-            elif data_quality['frequencies_estimated']:
-                section.append("WARNING: Frequencies estimated from band data - S&P analysis may be unreliable")
-                section.append(f"   {data_quality['estimated_frequencies']} frequencies estimated from band center")
-        section.append(f"S&P Percentage: {sp_percentage:.1f}%")
-        section.append("")
-        section.append("DATA QUALITY:")
-        section.append("-" * 40)
-        section.append(f"Frequency Coverage: {data_quality['freq_coverage']:.1f}%")
-        if data_quality['missing_frequency'] > 0:
-            section.append(f"Missing Frequency: {data_quality['missing_frequency']} QSOs")
-        if data_quality['estimated_frequencies'] > 0:
-            section.append(f"Estimated Frequencies: {data_quality['estimated_frequencies']} QSOs")
-        if data_quality['missing_band'] > 0:
-            section.append(f"Missing Band: {data_quality['missing_band']} QSOs")
-        if data_quality['missing_time'] > 0:
-            section.append(f"Missing Time: {data_quality['missing_time']} QSOs")
-        if data_quality['sp_analysis_reliable']:
-            section.append("STATUS: S&P analysis reliable")
-        else:
-            section.append("STATUS: S&P analysis unreliable due to missing/estimated frequency data")
-        section.append("")
-        return section
-
-    @staticmethod
     def _generate_log_statistics_section(log_stats: Dict[str, Any], qsos: List[Dict[str, Any]]) -> list:
+        """
+        Generate the log statistics section for the report.
+        """
         section = []
+
         def adif_date_to_iso(date_str):
             if date_str and len(date_str) == 8 and date_str.isdigit():
                 return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
             return date_str
+
         def get_qso_date(qso: Dict[str, Any]) -> str:
             for k in qso.keys():
                 if k.lower() == 'qso_date':
                     return qso[k]
             return None
+
         def get_date_and_time_for_time(time: int, prefer_first: bool = False, prefer_last: bool = False):
             matches = [qso for qso in qsos if qso.get('TIME_ON') == time and get_qso_date(qso)]
             if not matches:
@@ -934,6 +953,7 @@ class QSOMetrics:
                 return (date, time_val)
             date = adif_date_to_iso(get_qso_date(matches[0]))
             return (date, matches[0]['TIME_ON'])
+
         section.append("LOG STATISTICS:")
         section.append("-" * 40)
         section.append(f"Total Log Duration: {log_stats['total_hours']:.1f} hours")
@@ -1121,8 +1141,11 @@ class QSOMetrics:
                 missing_pct = 100.0 * missing_count / qso_count
             else:
                 missing_pct = 0.0
+            # If all QSOs are missing frequency, mark as unreliable
             if missing_count == 0:
                 confidence = "(accurate - all QSOs have frequency data)"
+            elif missing_count == qso_count:
+                confidence = "(unreliable - all QSOs missing frequency data)"
             else:
                 confidence = f"(unreliable - {missing_count} QSOs missing frequency, {missing_pct:.1f}% of QSOs)"
             section.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
