@@ -844,6 +844,7 @@ class QSOMetrics:
         report.append("QSO ANALYSIS SUMMARY REPORT")
         report.append("=" * 60)
         report.append(f"Total QSOs: {total_qsos}")
+
         if dupe_list:
             report.append("")
             report.append("Duplicate contact list (CALLSIGN on BAND/MODE):")
@@ -853,6 +854,54 @@ class QSOMetrics:
                 times_fmt = ', '.join(str(t).zfill(6) for t in sorted(times) if t is not None)
                 report.append(f"  {call} on {band} {mode} at times: {times_fmt}")
         report.append(f"Duplicate contacts (same callsign on same band/mode): {len(dupe_list)}")
+
+        # --- New Stat: Calls worked on multiple modes per band (corrected logic) ---
+        # Build: call -> band -> set(modes)
+        all_calls_in_log = set()
+        call_band_modes = defaultdict(lambda: defaultdict(set))
+        for qso in qsos:
+            call = str(qso.get('CALL', '')).strip().upper()
+            band = str(qso.get('BAND', '')).strip().upper()
+            mode = str(qso.get('MODE', '')).strip().upper()
+            # Assert that no callsign is 'UNKNOWN' or 'NONE'
+            assert call not in {'UNKNOWN', 'NONE'}, f"Invalid callsign found in log: {qso}"
+            if call:
+                all_calls_in_log.add(call)
+            if call and band and mode:
+                call_band_modes[call][band].add(mode)
+
+
+        # For each call, if it was worked on multiple modes on any band, count it once
+        band_multi_mode_counts = defaultdict(int)
+        band_total_calls = defaultdict(int)
+        calls_multi_mode_any_band = set()
+        all_unique_calls = set(call_band_modes.keys())
+        for call, band_modes in call_band_modes.items():
+            multi_mode_this_call = False
+            for band, modes in band_modes.items():
+                band_total_calls[band] += 1
+                if len(modes) > 1:
+                    band_multi_mode_counts[band] += 1
+                    multi_mode_this_call = True
+            if multi_mode_this_call:
+                calls_multi_mode_any_band.add(call)
+
+        total_unique = len(all_calls_in_log)
+        total_multi_mode = len(calls_multi_mode_any_band)
+        pct_total_multi = (100.0 * total_multi_mode / total_unique) if total_unique > 0 else 0.0
+
+        # --- New Stat: Number of unique callsigns in the entire log ---
+        report.append("")
+        report.append(f"Number of unique callsigns in the entire log: {total_unique}")
+
+        report.append("")
+        report.append("Calls worked on multiple modes per band:")
+        for band in sorted(band_total_calls.keys()):
+            count_multi = band_multi_mode_counts[band]
+            count_total = band_total_calls[band]
+            pct = (100.0 * count_multi / count_total) if count_total > 0 else 0.0
+            report.append(f"  {band}: {count_multi} of {count_total} calls ({pct:.1f}%)")
+        report.append(f"Total calls worked on multiple modes (any band): {total_multi_mode} of {total_unique} unique calls ({pct_total_multi:.1f}%)")
 
         report.extend(QSOMetrics._generate_data_quality_section(data_quality, sp_percentage))
         report.extend(QSOMetrics._generate_log_statistics_section(log_stats, qsos))
@@ -1097,22 +1146,48 @@ class QSOMetrics:
 
     @staticmethod
     def _generate_section_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
+        # User-provided ARRL section abbreviations list (count: 63)
+      
         arrl_sections = [
-            'AB', 'AK', 'AL', 'AR', 'AZ', 'BC', 'CO', 'CT', 'DC', 'DE', 'EB', 'EMA', 'ENY', 'EWA', 'FL', 'GA', 'GTA',
-            'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'LAX', 'MAR', 'MB', 'MD', 'ME', 'MI', 'MN', 'MO', 'MS', 'MT',
-            'NB', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NL', 'NM', 'NNJ', 'NLI', 'NNY', 'NS', 'NT', 'NTX', 'NU', 'NV', 'NY',
-            'OH', 'OK', 'ONE', 'ONS', 'OR', 'ORG', 'PA', 'PE', 'PR', 'QC', 'RI', 'SB', 'SC', 'SCV', 'SD', 'SDG',
-            'SF', 'SFL', 'SK', 'SNJ', 'STX', 'SV', 'TN', 'TX', 'UT', 'VA', 'VI', 'VT', 'WMA', 'WNY', 'WTX', 'WWA', 'WY'
+            # Area 0: Central and Northern Plains States
+            "CO", "IA", "KS", "MN", "MO", "ND", "NE", "SD",
+            # Area 1: New England and Eastern Massachusetts
+            "CT", "EMA", "ME", "NH", "RI", "VT", "WMA",
+            # Area 2: New York and Northern New Jersey
+            "ENY", "NLI", "NNJ", "NNY", "SNJ", "WNY",
+            # Area 3: Delaware, Eastern & Western Pennsylvania, Maryland, DC
+            "DE", "EPA", "MDC", "WPA",
+            # Area 4: Southeast US including Puerto Rico and U.S. Virgin Islands
+            "AL", "GA", "KY", "NC", "NFL", "PR", "SC", "SFL", "TN", "VA", "VI", "WCF",
+            # Area 5: South Central US (Arkansas, Louisiana, Mississippi, New Mexico, Texas sections)
+            "AR", "LA", "MS", "NM", "NTX", "OK", "STX", "WTX",
+            # Area 6: California and Pacific sections
+            "EB", "LAX", "ORG", "PAC", "SB", "SCV", "SDG", "SF", "SJV", "SV",
+            # Area 7: Northwestern US including Alaska, Arizona, Hawaii, Washington, Oregon, Idaho, Montana, Wyoming, Utah, Nevada
+            "AK", "AZ", "EWA", "HI", "ID", "MT", "NV", "OR", "UT", "WWA", "WY",
+            # Area 8: Michigan, Ohio, West Virginia
+            "MI", "OH", "WV",
+            # Area 9: Illinois, Indiana, Wisconsin
+            "IL", "IN", "WI",
+            # Canada: Canadian RAC Sections and Territories
+            "AB", "BC", "GH", "MB", "NB", "NL", "NS", "ONE", "ONN", "ONS", "PE", "QC", "SK", "TER",
+            # any DX non ARRL section
+            "DX"
         ]
-        assert len(arrl_sections) == 84, f"ARRL section list should have 84 entries, found {len(arrl_sections)}"
+        assert len(arrl_sections) == 87, f"ARRL section list should have 87 entries, found {len(arrl_sections)}"
 
         section_counts: Dict[str, int] = {}
+        unmatched_sections = set()
+        unmatched_qsos = []
         for qso in qsos:
             sec = qso.get('ARRL_SECT', 'UNKNOWN')
             if sec is None:
                 sec = 'UNKNOWN'
             sec = str(sec).strip().upper()
             section_counts[sec] = section_counts.get(sec, 0) + 1
+            if sec not in arrl_sections:
+                unmatched_sections.add(sec)
+                unmatched_qsos.append(qso)
         # Always show all ARRL sections, even if not worked
         section_tuples = []
         for sec in arrl_sections:
@@ -1127,6 +1202,26 @@ class QSOMetrics:
         lines.append("Total Contacts by Section (sorted):")
         lines += QSOMetrics._format_section_table_side_by_side(section_tuples_sorted)
         lines.append(f"Unique Sections Worked: {worked_count} of {len(arrl_sections)} ({(worked_count / len(arrl_sections) * 100):.1f}%)")
+        if unmatched_sections:
+            lines.append("")
+            lines.append("WARNING: The following ARRL_SECT values in the log do not match the official ARRL section list:")
+            for sec in sorted(unmatched_sections):
+                lines.append(f"  Unmatched section: '{sec}'")
+            # Print details for each unmatched QSO
+            for qso in unmatched_qsos:
+                call = qso.get('CALL', 'UNKNOWN')
+                sec = qso.get('ARRL_SECT', 'UNKNOWN')
+                band = qso.get('BAND', 'UNKNOWN')
+                mode = qso.get('MODE', 'UNKNOWN')
+                time_on = qso.get('TIME_ON', 'UNKNOWN')
+                operator = qso.get('OPERATOR', 'UNKNOWN')
+                computer = qso.get('N3FJP_COMPUTERNAME', 'UNKNOWN')
+                lines.append(
+                    f"    QSO: CALL={call}, ARRL_SECT={sec}, BAND={band}, MODE={mode}, TIME_ON={time_on}, OPERATOR={operator}, COMPUTER={computer}"
+                )
+        else:
+            lines.append("")
+            lines.append("All ARRL_SECT values in the log match the official ARRL section list.")
         return lines
 
     @staticmethod
