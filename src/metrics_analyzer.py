@@ -47,10 +47,10 @@ class QSOMetrics:
         qsos_by_computer = defaultdict(list)
         for qso in qsos:
             computer = qso.get('station', 'UNKNOWN')  # Use 'station' as computer name
-            if qso.get('time') is not None:
+            if qso.get('TIME_ON') is not None:
                 qsos_by_computer[computer].append(qso)
         for computer, comp_qsos in qsos_by_computer.items():
-            times = sorted(qso['time'] for qso in comp_qsos if qso.get('time') is not None)
+            times = sorted(qso['TIME_ON'] for qso in comp_qsos if qso.get('TIME_ON') is not None)
             computer_gaps[computer] = QSOMetrics._find_silent_periods(times, min_gap_minutes)
         return computer_gaps
 
@@ -110,16 +110,23 @@ class QSOMetrics:
         for qso in qsos:
             if prev is not None:
                 # Check if same band
-                if qso.get('band') == prev.get('band'):
+                if qso.get('BAND') == prev.get('BAND'):
                     # Get frequencies, estimating from band if missing
-                    current_freq = qso.get('freq')
-                    if current_freq is None and qso.get('band'):
-                        current_freq = band_freq_map.get(qso.get('band', '').upper().strip(), 14.200)
-                    
-                    prev_freq = prev.get('freq')
-                    if prev_freq is None and prev.get('band'):
-                        prev_freq = band_freq_map.get(prev.get('band', '').upper().strip(), 14.200)
-                    
+                    current_freq = qso.get('FREQ')
+                    if current_freq == '' and qso.get('BAND'):
+                        current_freq = band_freq_map.get(qso.get('BAND', '').upper().strip(), 14.200)
+                    prev_freq = prev.get('FREQ')
+                    if prev_freq == '' and prev.get('BAND'):
+                        prev_freq = band_freq_map.get(prev.get('BAND', '').upper().strip(), 14.200)
+                    # Convert frequency values to float if possible
+                    try:
+                        if current_freq is not None:
+                            current_freq = float(current_freq)
+                        if prev_freq is not None:
+                            prev_freq = float(prev_freq)
+                    except (ValueError, TypeError):
+                        current_freq = None
+                        prev_freq = None
                     # Only calculate if we have frequency data (actual or estimated)
                     if current_freq is not None and prev_freq is not None:
                         freq_diff = abs(current_freq - prev_freq)
@@ -158,11 +165,13 @@ class QSOMetrics:
         # Group QSOs by operator and collect times
         for qso in qsos:
             operator = qso.get('operator', 'UNKNOWN')
+            # Only use 'TIME_ON' (uppercase) as the canonical time field
+            if 'TIME_ON' not in qso or qso['TIME_ON'] is None:
+                raise ValueError(f"QSO record is missing required 'TIME_ON' field: {qso}")
             operator_stats[operator]['qso_count'] += 1
-            if qso['time'] is not None:
-                operator_stats[operator]['times'].append(qso['time'])
+            operator_stats[operator]['times'].append(qso['TIME_ON'])
             # Track missing frequency data per operator
-            if qso.get('freq') is None:
+            if qso.get('FREQ') is None:
                 operator_stats[operator]['missing_freq_count'] += 1
         
         # Calculate rates for each operator
@@ -276,13 +285,13 @@ class QSOMetrics:
             total = 0
             prev = None
 
-            # Sort operator's QSOs by time
-            sorted_qsos = sorted(op_qsos, key=lambda x: x['time'] if x['time'] is not None else 0)
+            # Sort operator's QSOs by canonical time field
+            sorted_qsos = sorted(op_qsos, key=lambda x: x.get('TIME_ON') if x.get('TIME_ON') is not None else 0)
 
             for qso in sorted_qsos:
                 if prev is not None:
                     # Check if same band
-                    if qso.get('band') == prev.get('band'):
+                    if qso.get('BAND') == prev.get('BAND'):
                         # Get frequencies, estimating from band if missing
                         band_freq_map = {
                             '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
@@ -290,15 +299,23 @@ class QSOMetrics:
                             '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
                         }
 
-                        current_freq = qso.get('freq')
-                        if current_freq is None and qso.get('band'):
-                            current_freq = band_freq_map.get(qso.get('band', '').upper().strip(), 14.200)
+                        current_freq = qso.get('FREQ')
+                        if current_freq == '' and qso.get('BAND'):
+                            current_freq = band_freq_map.get(qso.get('BAND', '').upper().strip(), 14.200)
 
-                        prev_freq = prev.get('freq')
-                        if prev_freq is None and prev.get('band'):
-                            prev_freq = band_freq_map.get(prev.get('band', '').upper().strip(), 14.200)
+                        prev_freq = prev.get('FREQ')
+                        if prev_freq == '' and prev.get('BAND'):
+                            prev_freq = band_freq_map.get(prev.get('BAND', '').upper().strip(), 14.200)
 
                         # Only calculate if we have frequency data (actual or estimated)
+                        try:
+                            if current_freq is not None:
+                                current_freq = float(current_freq)
+                            if prev_freq is not None:
+                                prev_freq = float(prev_freq)
+                        except (ValueError, TypeError):
+                            current_freq = None
+                            prev_freq = None
                         if current_freq is not None and prev_freq is not None:
                             freq_diff = abs(current_freq - prev_freq)
                             # Frequency change > 200 Hz indicates S&P
@@ -337,7 +354,7 @@ class QSOMetrics:
             }
         
         # Get all times and sort them
-        times = [qso['time'] for qso in qsos if qso['time'] is not None]
+        times = [qso['TIME_ON'] for qso in qsos if qso.get('TIME_ON') is not None]
         if not times:
             return {
                 'total_hours': 0.0,
@@ -347,29 +364,21 @@ class QSOMetrics:
                 'operator_sessions': {},
                 'time_accounting': QSOMetrics._calculate_accurate_time_accounting([])
             }
-        
         times.sort()
         start_time = times[0]
         end_time = times[-1]
-        
         # Calculate total duration
         total_hours = QSOMetrics._calculate_duration_hours(times)
-        
         # Calculate overall rate
         overall_rate = len(qsos) / total_hours if total_hours > 0 else 0.0
-        
         # Find gaps > 15 minutes
         gaps = QSOMetrics._find_silent_periods(times)
-        
         # Calculate hourly rates
         hourly_rates = QSOMetrics._calculate_hourly_rates(qsos)
-        
         # Calculate operator sessions
         operator_sessions = QSOMetrics._calculate_operator_sessions(qsos)
-        
         # Calculate accurate time accounting
         time_accounting = QSOMetrics._calculate_accurate_time_accounting(qsos)
-        
         return {
             'total_hours': total_hours,
             'overall_rate': overall_rate,
@@ -403,7 +412,7 @@ class QSOMetrics:
             }
         
         # Get all times and sort them
-        times = [qso['time'] for qso in qsos if qso['time'] is not None]
+        times = [qso['TIME_ON'] for qso in qsos if qso.get('TIME_ON') is not None]
         if not times:
             return {
                 'total_log_hours': 0.0,
@@ -482,8 +491,14 @@ class QSOMetrics:
         hourly_counts = defaultdict(int)
         
         for qso in qsos:
-            if qso['time'] is not None:
-                time_str = f"{qso['time']:06d}"
+            time_on = qso.get('TIME_ON')
+            if time_on is not None:
+                # Ensure time_on is int for formatting
+                try:
+                    time_on_int = int(time_on)
+                except Exception:
+                    continue
+                time_str = f"{time_on_int:06d}"
                 hour = int(time_str[:2])
                 hourly_counts[hour] += 1
         
@@ -513,9 +528,9 @@ class QSOMetrics:
         if not qsos:
             return {}
         
-        # Sort QSOs by time
-        sorted_qsos = sorted([qso for qso in qsos if qso['time'] is not None], 
-                           key=lambda x: x['time'])
+        # Sort QSOs by canonical time field
+        sorted_qsos = sorted([qso for qso in qsos if qso.get('TIME_ON') is not None], 
+                           key=lambda x: x['TIME_ON'])
         
         if not sorted_qsos:
             return {}
@@ -536,56 +551,51 @@ class QSOMetrics:
             # Extract operator and station from the key
             operator, station = operator_station_key.split('@', 1)
             
-            # Sort this operator@station's QSOs by time
-            qsos_list.sort(key=lambda x: x['time'])
+            # Sort this operator@station's QSOs by canonical time field
+            qsos_list.sort(key=lambda x: x['TIME_ON'])
             
             operator_sessions[operator_station_key] = {
                 'operator': operator,
                 'station': station,
                 'sessions': [],
                 'total_minutes': 0,
-                'first_qso': qsos_list[0]['time'],
-                'last_qso': qsos_list[-1]['time'],
+                'first_qso': qsos_list[0]['TIME_ON'],
+                'last_qso': qsos_list[-1]['TIME_ON'],
                 'session_count': 0
             }
             
             # Process sessions for this operator@station using 15-minute gap rule
-            current_session_start = qsos_list[0]['time']
-            current_session_end = qsos_list[0]['time']
+            current_session_start = qsos_list[0]['TIME_ON']
+            current_session_end = qsos_list[0]['TIME_ON']
             
             for i in range(1, len(qsos_list)):
                 current_qso = qsos_list[i]
                 prev_qso = qsos_list[i-1]
-                
                 # Calculate gap between consecutive QSOs for this operator@station
                 gap_minutes = QSOMetrics._calculate_time_gap_minutes(
-                    prev_qso['time'], current_qso['time'])
-                
+                    prev_qso['TIME_ON'], current_qso['TIME_ON'])
+
                 if gap_minutes > 15:
                     # End current session and start new one
                     session_duration = QSOMetrics._calculate_time_gap_minutes(
                         current_session_start, current_session_end)
-                    
                     # For multi-station operations: assign minimum 2-minute duration 
                     # to single QSO sessions (realistic time for QSO + logging)
                     if session_duration == 0:
                         session_duration = 2
-                    
                     operator_sessions[operator_station_key]['sessions'].append({
                         'start_time': current_session_start,
                         'end_time': current_session_end,
                         'duration_minutes': session_duration
                     })
-                    
                     operator_sessions[operator_station_key]['total_minutes'] += session_duration
                     operator_sessions[operator_station_key]['session_count'] += 1
-                    
                     # Start new session
-                    current_session_start = current_qso['time']
-                    current_session_end = current_qso['time']
+                    current_session_start = current_qso['TIME_ON']
+                    current_session_end = current_qso['TIME_ON']
                 else:
                     # Continue current session
-                    current_session_end = current_qso['time']
+                    current_session_end = current_qso['TIME_ON']
             
             # Add the final session
             session_duration = QSOMetrics._calculate_time_gap_minutes(
@@ -604,7 +614,6 @@ class QSOMetrics:
             
             operator_sessions[operator_station_key]['total_minutes'] += session_duration
             operator_sessions[operator_station_key]['session_count'] += 1
-        
         return operator_sessions
     
     @staticmethod
@@ -672,7 +681,11 @@ class QSOMetrics:
         Returns:
             Formatted time string (YYYY-MM-DD HH:MM or HH:MM)
         """
-        time_str = f"{time_hhmmss:06d}"
+        try:
+            time_int = int(time_hhmmss)
+        except Exception:
+            return str(time_hhmmss) if not date else f"{date} {str(time_hhmmss)}"
+        time_str = f"{time_int:06d}"
         hours = time_str[:2]
         minutes = time_str[2:4]
         if date:
@@ -690,9 +703,13 @@ class QSOMetrics:
         Returns:
             Minutes since midnight
         """
-        time_str = f"{time_hhmmss:06d}"
-        hours = int(time_str[:2])
-        minutes = int(time_str[2:4])
+        # Accept both string and int for HHMMSS, always convert to string then int
+        time_str = str(time_hhmmss).zfill(6)
+        try:
+            hours = int(time_str[:2])
+            minutes = int(time_str[2:4])
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid HHMMSS time value: {time_hhmmss}")
         return hours * 60 + minutes
     
     @staticmethod
@@ -717,9 +734,9 @@ class QSOMetrics:
             }
             
         total_qsos = len(qsos)
-        missing_freq = sum(1 for qso in qsos if qso.get('freq') is None)
-        missing_band = sum(1 for qso in qsos if qso.get('band') is None)
-        missing_time = sum(1 for qso in qsos if qso.get('time') is None)
+        missing_freq = sum(1 for qso in qsos if qso.get('FREQ') is None)
+        missing_band = sum(1 for qso in qsos if qso.get('BAND') is None)
+        missing_time = sum(1 for qso in qsos if qso.get('TIME_ON') is None)
         
         # Check if frequencies are estimated (all frequencies are exact band center frequencies)
         estimated_freq_count = 0
@@ -731,8 +748,16 @@ class QSOMetrics:
             }
             
             for qso in qsos:
-                freq = qso.get('freq')
-                band = qso.get('band', '').upper().strip()
+                freq = qso.get('FREQ')
+                band = qso.get('BAND', '').upper().strip()
+                # Handle '' or None freq by estimating from band center
+                if freq in (None, '') and band in band_freq_map:
+                    freq = band_freq_map[band]
+                try:
+                    if freq is not None:
+                        freq = float(freq)
+                except (ValueError, TypeError):
+                    freq = None
                 if freq is not None and band in band_freq_map:
                     if abs(freq - band_freq_map[band]) < 0.001:  # Within 1 kHz of band center
                         estimated_freq_count += 1
@@ -784,7 +809,7 @@ class QSOMetrics:
         section = []
         operator_counts = {}
         for qso in qsos:
-            operator = qso.get('operator', 'UNKNOWN')
+            operator = qso.get('operator', 'Mr. Nobody')
             if operator is None:
                 operator = 'UNKNOWN'
             operator = str(operator).strip().upper()
@@ -825,7 +850,7 @@ class QSOMetrics:
                 section.append("  Sessions:")
                 for i, session in enumerate(session_data['sessions'], 1):
                     duration_hours = session['duration_minutes'] / 60.0
-                    session_qso_count = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station and session['start_time'] <= qso['time'] <= session['end_time'])
+                    session_qso_count = sum(1 for qso in qsos if qso.get('operator', 'UNKNOWN') == operator and qso.get('station', 'HAL 9000') == station and session['start_time'] <= qso.get('TIME_ON', -1) <= session['end_time'])
                     section.append(f"    {i}. {QSOMetrics._format_time(session['start_time'])} - "
                                    f"{QSOMetrics._format_time(session['end_time'])} "
                                    f"({duration_hours:.1f}h, {session_qso_count} QSOs)")
@@ -893,22 +918,22 @@ class QSOMetrics:
                     return qso[k]
             return None
         def get_date_and_time_for_time(time: int, prefer_first: bool = False, prefer_last: bool = False):
-            matches = [qso for qso in qsos if qso.get('time') == time and get_qso_date(qso)]
+            matches = [qso for qso in qsos if qso.get('TIME_ON') == time and get_qso_date(qso)]
             if not matches:
                 return (None, time)
-            matches.sort(key=lambda q: (int(get_qso_date(q)), int(q['time']) if q.get('time') is not None else 0))
+            matches.sort(key=lambda q: (int(get_qso_date(q)), int(q['TIME_ON']) if q.get('TIME_ON') is not None else 0))
             if prefer_first:
                 min_qso = matches[0]
                 date = adif_date_to_iso(get_qso_date(min_qso))
-                time_val = min_qso['time']
+                time_val = min_qso['TIME_ON']
                 return (date, time_val)
             if prefer_last:
                 max_qso = matches[-1]
                 date = adif_date_to_iso(get_qso_date(max_qso))
-                time_val = max_qso['time']
+                time_val = max_qso['TIME_ON']
                 return (date, time_val)
             date = adif_date_to_iso(get_qso_date(matches[0]))
-            return (date, matches[0]['time'])
+            return (date, matches[0]['TIME_ON'])
         section.append("LOG STATISTICS:")
         section.append("-" * 40)
         section.append(f"Total Log Duration: {log_stats['total_hours']:.1f} hours")
@@ -930,9 +955,9 @@ class QSOMetrics:
             section.append("TIME BREAKDOWN:")
             section.append(f"  Total Log Duration: {time_acc['total_log_hours']:.1f} hours")
             qso_with_date_and_time = [
-                (get_qso_date(qso), qso['time'])
+                (get_qso_date(qso), qso['TIME_ON'])
                 for qso in qsos
-                if get_qso_date(qso) and qso.get('time') is not None
+                if get_qso_date(qso) and qso.get('TIME_ON') is not None
             ]
             if qso_with_date_and_time:
                 qso_with_date_and_time.sort(key=lambda x: (int(x[0]), int(x[1])))
@@ -960,8 +985,8 @@ class QSOMetrics:
         band_set = set()
         mode_set = set()
         for qso in qsos:
-            band = qso.get('band', 'UNKNOWN')
-            mode = qso.get('mode', 'UNKNOWN')
+            band = qso.get('BAND', 'UNKNOWN')
+            mode = qso.get('MODE', 'UNKNOWN')
             band_set.add(band)
             mode_set.add(mode)
             if band not in band_mode_counts:
@@ -1005,7 +1030,7 @@ class QSOMetrics:
             grand_total += band_total
         section.append("")
         section.append("BAND/MODE BREAKDOWN:")
-        section.append(" Band  |   CW  | Phone |  Dig  | Total |   %")
+        section.append(" Band  |   CW  |  SSB  |  Dig  | Total |  %")
         section.append("-------|-------|-------|-------|-------|-----")
         for band in bands:
             cw = band_mode_summary[band].get('CW', 0)
@@ -1023,28 +1048,17 @@ class QSOMetrics:
     @staticmethod
     def _generate_section_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
         arrl_sections = [
-            'EMA', 'WMA', 'NH', 'VT', 'ME', 'RI', 'CT',
-            'NNY', 'ENY', 'WNY', 'NLI',
-            'SNJ', 'NNJ',
-            'EPA', 'WPA',
-            'DE', 'MD', 'DC', 'VA', 'WV',
-            'NC', 'SC', 'GA', 'FL', 'PR', 'VI', 'AL', 'MS', 'TN', 'KY',
-            'OH', 'MI', 'IN', 'WI',
-            'IL', 'MO', 'AR', 'LA', 'OK', 'TX',
-            'MN', 'IA', 'KS', 'NE', 'SD', 'ND',
-            'CO', 'WY', 'MT', 'UT', 'ID',
-            'AZ', 'NM',
-            'OR', 'WA', 'EWA', 'WWA',
-            'AK', 'NT',
-            'MAR', 'NL', 'QC', 'ON', 'MB', 'SK', 'AB', 'BC', 'NU', 'YT', 'NWT', 'LB', 'PE', 'NS',
-            'SB', 'SCV', 'SJV', 'LAX', 'ORG', 'SDG', 'SV', 'SF',
-            'GTA', 'ONE', 'ONS'
-        ]  # Official ARRL sections: 84
+            'AB', 'AK', 'AL', 'AR', 'AZ', 'BC', 'CO', 'CT', 'DC', 'DE', 'EB', 'EMA', 'ENY', 'EWA', 'FL', 'GA', 'GTA',
+            'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'LAX', 'MAR', 'MB', 'MD', 'ME', 'MI', 'MN', 'MO', 'MS', 'MT',
+            'NB', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NL', 'NM', 'NNJ', 'NLI', 'NNY', 'NS', 'NT', 'NTX', 'NU', 'NV', 'NY',
+            'OH', 'OK', 'ONE', 'ONS', 'OR', 'ORG', 'PA', 'PE', 'PR', 'QC', 'RI', 'SB', 'SC', 'SCV', 'SD', 'SDG',
+            'SF', 'SFL', 'SK', 'SNJ', 'STX', 'SV', 'TN', 'TX', 'UT', 'VA', 'VI', 'VT', 'WMA', 'WNY', 'WTX', 'WWA', 'WY'
+        ]
         assert len(arrl_sections) == 84, f"ARRL section list should have 84 entries, found {len(arrl_sections)}"
 
         section_counts: Dict[str, int] = {}
         for qso in qsos:
-            sec = qso.get('section', 'UNKNOWN')
+            sec = qso.get('ARRL_SECT', 'UNKNOWN')
             if sec is None:
                 sec = 'UNKNOWN'
             sec = str(sec).strip().upper()
@@ -1070,13 +1084,13 @@ class QSOMetrics:
         section = []
         country_counts = {}
         for qso in qsos:
-            country = qso.get('country', 'UNKNOWN')
+            country = qso.get('COUNTRY', 'Elbonia')
             if country is None:
-                country = 'UNKNOWN'
+                country = 'Elbonia'
             country = str(country).strip().upper()
             country_counts[country] = country_counts.get(country, 0) + 1
         if '' in country_counts:
-            country_counts['UNKNOWN'] = country_counts.get('UNKNOWN', 0) + country_counts['']
+            country_counts['Elbonia'] = country_counts.get('Elbonia', 0) + country_counts['']
             del country_counts['']
         sorted_countries = sorted(country_counts.items(), key=lambda x: (-x[1], x[0]))
         section.append("")

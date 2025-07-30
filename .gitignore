@@ -89,3 +89,5 @@ dmypy.json
 
 # Executable builds
 release/
+data/composite.adi
+composite_analysis.txt

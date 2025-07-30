@@ -70,22 +70,15 @@ class ADIFParser:
             IOError: If there's an error reading the file
         """
         qsos = []
-        encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
-        adif_data = None
-        for encoding in encodings:
-            try:
-                import adif_io
-                print(f"Trying to open {filename} with encoding: {encoding}")
-                adif_data, _ = adif_io.read_from_file(filename)
-                print(f"Successfully read {filename} with encoding: {encoding}")
-                break
-            except ImportError:
-                raise ImportError("adif-io package is not installed. Please install it via requirements.txt.")
-            except Exception as e:
-                print(f"Failed to read {filename} with encoding {encoding}: {e}")
-                continue
-        if adif_data is None:
-            raise IOError(f"Could not read file {filename} with any known encoding.")
+        try:
+            import adif_io
+            print(f"Trying to open {filename} with encoding: utf-8")
+            adif_data, _ = adif_io.read_from_file(filename)
+            print(f"Successfully read {filename} with encoding: utf-8")
+        except ImportError:
+            raise ImportError("adif-io package is not installed. Please install it via requirements.txt.")
+        except Exception as e:
+            raise IOError(f"Failed to read {filename} with encoding utf-8: {e}")
 
         for qso in adif_data:
             qso_norm = {k.lower(): v for k, v in qso.items()}
