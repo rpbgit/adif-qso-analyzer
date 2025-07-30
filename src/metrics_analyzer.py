@@ -825,11 +825,34 @@ class QSOMetrics:
         data_quality = QSOMetrics.analyze_data_quality(qsos)
         log_stats = QSOMetrics._calculate_log_statistics(qsos)
 
+        # Calculate duplicate contacts (same callsign on same band/mode)
+        from collections import defaultdict
+        dupe_times: dict = defaultdict(list)
+        for qso in qsos:
+            call = str(qso.get('CALL', '')).strip().upper()
+            band = str(qso.get('BAND', '')).strip().upper()
+            mode = str(qso.get('MODE', '')).strip().upper()
+            key = (call, band, mode)
+            time_on = qso.get('TIME_ON')
+            dupe_times[key].append(time_on)
+
+        # Only consider as dupe if more than one QSO for (call, band, mode)
+        dupe_list = [key for key, times in dupe_times.items() if len(times) > 1]
+
         report = []
         report.append("=" * 60)
         report.append("QSO ANALYSIS SUMMARY REPORT")
         report.append("=" * 60)
         report.append(f"Total QSOs: {total_qsos}")
+        if dupe_list:
+            report.append("")
+            report.append("Duplicate contact list (CALLSIGN on BAND/MODE):")
+            for call, band, mode in sorted(dupe_list):
+                times = dupe_times[(call, band, mode)]
+                # Format times as HHMMSS, sorted
+                times_fmt = ', '.join(str(t).zfill(6) for t in sorted(times) if t is not None)
+                report.append(f"  {call} on {band} {mode} at times: {times_fmt}")
+        report.append(f"Duplicate contacts (same callsign on same band/mode): {len(dupe_list)}")
 
         report.extend(QSOMetrics._generate_data_quality_section(data_quality, sp_percentage))
         report.extend(QSOMetrics._generate_log_statistics_section(log_stats, qsos))
@@ -842,6 +865,7 @@ class QSOMetrics:
         report.extend(QSOMetrics._generate_computer_gap_section(qsos, min_gap_minutes=15))
 
         return "\n".join(report)
+    # (method removed, logic restored to generate_summary_report)
     @staticmethod
     def _generate_operator_table(qsos: List[Dict[str, Any]], total_qsos: int) -> list:
         section = []
