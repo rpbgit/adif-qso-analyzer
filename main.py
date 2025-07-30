@@ -87,13 +87,21 @@ def concatenate_adif_files(input_files: List[str], output_file: str) -> None:
     """
     all_qsos = []
     import adif_io
+    read_messages = []
     print("")
+    from datetime import datetime
+
+    msg = ('+' * 80) + '\n'
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    msg += f"Report generated: {now_str}\n"
     for file in input_files:
         try:
             with open(file, "r", encoding="utf-8", errors="ignore") as f:
                 file_content = f.read()
             adif_data, _ = adif_io.read_from_string(file_content)
-            print(f"Read {len(adif_data)} QSO records from '{file}'")
+            msg = f"Read {len(adif_data)} QSO records from '{file}'"
+            print(msg)
+            read_messages.append(msg)
         except Exception as e:
             print(f"Error reading ADIF file '{file}': {e}")
             continue
@@ -117,7 +125,7 @@ def concatenate_adif_files(input_files: List[str], output_file: str) -> None:
         write_adif_file(all_qsos, output_file, header="Exported by ADIF QSO Analyzer")
     except Exception as e:
         print(f"Error writing concatenated ADIF file '{output_file}': {e}")
-    return all_qsos
+    return all_qsos, read_messages
 
 
 def main() -> None:
@@ -139,18 +147,23 @@ def main() -> None:
         sys.exit(1)
     output_file = "data/composite.adi"
     print(f"Concatenating ADIF files: {input_files}")
-    qsos = concatenate_adif_files(input_files, output_file)
+    qsos, read_messages = concatenate_adif_files(input_files, output_file)
     filename = output_file  # Only used for naming the report file, not for reparsing
 
     if not qsos:
         print("No valid QSO records found in the file.")
         return
     try:
+        from datetime import datetime
         report = QSOMetrics.generate_summary_report(qsos)
-        print(report)
+        # Prepend header with current date and time
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        header = f"Report generated: {now_str}"
+        report_with_reads = header + "\n" + "\n".join(read_messages) + "\n\n" + report
+        print(report_with_reads)
         output_report = f"{Path(filename).stem}_analysis.txt"
         with open(output_report, 'w', encoding='utf-8') as f:
-            f.write(report)
+            f.write(report_with_reads)
         print(f"Report saved to: {output_report}")
     except (FileNotFoundError, IOError) as e:
         print(f"Error: {e}")
