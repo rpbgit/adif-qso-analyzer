@@ -766,37 +766,43 @@ class QSOMetrics:
             }
             
         total_qsos = len(qsos)
-        missing_freq = sum(1 for qso in qsos if qso.get('FREQ') is None)
         missing_band = sum(1 for qso in qsos if qso.get('BAND') is None)
         missing_time = sum(1 for qso in qsos if qso.get('TIME_ON') is None)
-        
-        # Check if frequencies are estimated (all frequencies are exact band center frequencies)
+
+        band_freq_map = {
+            '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
+            '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
+            '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
+        }
+
+        missing_freq = 0
         estimated_freq_count = 0
-        if missing_freq == 0:  # Only check if we have frequency data
-            band_freq_map = {
-                '160M': 1.900, '80M': 3.750, '60M': 5.330, '40M': 7.100, '30M': 10.125,
-                '20M': 14.200, '17M': 18.100, '15M': 21.200, '12M': 24.900, '10M': 28.400,
-                '6M': 50.100, '4M': 70.200, '2M': 144.200, '1.25M': 222.100, '70CM': 432.100
-            }
-            
-            for qso in qsos:
-                freq = qso.get('FREQ')
-                band = qso.get('BAND', '').upper().strip()
-                # Handle '' or None freq by estimating from band center
-                if freq in (None, '') and band in band_freq_map:
-                    freq = band_freq_map[band]
-                try:
-                    if freq is not None:
-                        freq = float(freq)
-                except (ValueError, TypeError):
-                    freq = None
-                if freq is not None and band in band_freq_map:
-                    if abs(freq - band_freq_map[band]) < 0.001:  # Within 1 kHz of band center
-                        estimated_freq_count += 1
-        
-        freq_coverage = (total_qsos - missing_freq) / total_qsos * 100 if total_qsos > 0 else 0
+        freq_coverage_count = 0
+        for qso in qsos:
+            freq = qso.get('FREQ')
+            band = qso.get('BAND', '').upper().strip()
+            is_missing = freq in (None, '')
+            # If missing, estimate for estimated count, but do not count for coverage
+            if is_missing:
+                missing_freq += 1
+                if band in band_freq_map:
+                    freq_est = band_freq_map[band]
+                    estimated_freq_count += 1
+                continue
+            try:
+                freq_val = float(freq)
+            except (ValueError, TypeError):
+                missing_freq += 1
+                continue
+            # If freq matches band center, count as estimated
+            if band in band_freq_map and abs(freq_val - band_freq_map[band]) < 0.001:
+                estimated_freq_count += 1
+            else:
+                freq_coverage_count += 1
+
+        freq_coverage = (freq_coverage_count / total_qsos * 100) if total_qsos > 0 else 0
         sp_analysis_reliable = missing_freq == 0 and estimated_freq_count < (total_qsos * 0.9)
-        
+
         return {
             'total_qsos': total_qsos,
             'missing_frequency': missing_freq,
@@ -1150,5 +1156,8 @@ class QSOMetrics:
                 confidence = f"(unreliable - {missing_count} QSOs missing frequency, {missing_pct:.1f}% of QSOs)"
             section.append(f"  Run: {stats['run_percentage']:.1f}% | S&P: {stats['sp_percentage']:.1f}% {confidence}")
             section.append("")
+        # Add total number of unique operators
+        total_operators = len(operator_stats)
+        section.append(f"Total number of operators: {total_operators}")
         return section
 

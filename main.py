@@ -44,6 +44,10 @@ def normalize_qso_fields(qso: Dict[str, Any]) -> Dict[str, Any]:
     # Ensure ARRL_SECT is upper case (already handled above, but for safety)
     if 'ARRL_SECT' in qso_norm and isinstance(qso_norm['ARRL_SECT'], str):
         qso_norm['ARRL_SECT'] = qso_norm['ARRL_SECT'].strip().upper()
+
+    # Ensure OPERATOR is set to 'Mr. Nobody' if missing or empty
+    if not qso_norm.get('OPERATOR') or (isinstance(qso_norm.get('OPERATOR'), str) and qso_norm.get('OPERATOR').strip() == ''):
+        qso_norm['OPERATOR'] = 'Mr. Nobody'
     return qso_norm
 
 
@@ -89,11 +93,6 @@ def concatenate_adif_files(input_files: List[str], output_file: str) -> None:
     import adif_io
     read_messages = []
     print("")
-    from datetime import datetime
-
-    msg = ('+' * 80) + '\n'
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    msg += f"Report generated: {now_str}\n"
     for file in input_files:
         try:
             with open(file, "r", encoding="utf-8", errors="ignore") as f:
@@ -157,8 +156,9 @@ def main() -> None:
         from datetime import datetime
         report = QSOMetrics.generate_summary_report(qsos)
         # Prepend header with current date and time
+        header = ('+' * 80) + '\n'
         now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        header = f"Report generated: {now_str}"
+        header += f"Report generated: {now_str}\n"
         report_with_reads = header + "\n" + "\n".join(read_messages) + "\n\n" + report
         print(report_with_reads)
         output_report = f"{Path(filename).stem}_analysis.txt"
