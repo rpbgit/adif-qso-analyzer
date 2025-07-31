@@ -1,0 +1,86 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Debug N1MM file",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            //"args": "${command:pickArgs}"
+            "args": [
+                "data/N1MM_CW.adi"
+            ]
+        },
+        {
+            "name": "Debug FJP file",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            //"args": "${command:pickArgs}"
+            "args": [
+                "data/FJP_20m.adi"
+            ]
+        },
+        {
+            "name": "Debug *.adi",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            //"args": "${command:pickArgs}"
+            "args": [
+                "data/logs4concat/*.adi"
+            ],
+        },
+        {
+            "name": "Run ADIF Analyzer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "stopOnEntry": false
+        },
+        {
+            "name": "Debug ADIF Analyzer (Step Into All)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "justMyCode": false,
+            "stopOnEntry": true,
+            "args": []
+        },
+        {
+            "name": "Debug: Main with Custom File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "path/to/your/custom/file.adi"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe"
+        },
+        {
+            "name": "Debug with 2 ADIF files",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "data/FJP_20m.adi",
+                "data/N1MM_CW.adi"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe"
+        }
+    ]
+}
