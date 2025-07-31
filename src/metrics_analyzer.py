@@ -11,7 +11,7 @@ ARRL_DXCC_PREFIXES: dict[str, str] = {
     "AV": "UNITED STATES", "AW": "UNITED STATES", "AX": "UNITED STATES", "AY": "UNITED STATES",
     "AZ": "UNITED STATES",
     "KL7": "ALASKA",
-    "KH6": "HAWAII",
+    "KH6": "HAWAII", "AH7": "HAWAII", "AH6": "HAWAII", "NH6": "HAWAII", "NH7": "HAWAII","WH6": "HAWAII","WH7": "HAWAII",
     "KP4": "PUERTO RICO",
     "KP2": "US VIRGIN ISLANDS",
     "KH2": "GUAM",
@@ -142,6 +142,7 @@ class QSOMetrics:
             section.append("S&P analysis is considered reliable.")
         section.append("")
         return section
+    
     @staticmethod
     def calculate_sp_percentage(qsos: List[Dict[str, Any]]) -> float:
         """
@@ -192,6 +193,7 @@ class QSOMetrics:
         if total == 0:
             return 0.0
         return 100.0 * s_and_p / total
+    
     @staticmethod
     def _format_section_table_side_by_side(sections: list) -> list:
         """
@@ -223,6 +225,7 @@ class QSOMetrics:
             rstr = f" {c3[0]:<9} {c3[1]:>5} {c3[2]:>3}" if c3[0] else ""
             lines.append(f"{lstr} |{mstr} |{rstr}")
         return lines
+    
     @staticmethod
     def _find_silent_periods_by_computer(qsos: List[Dict[str, Any]], min_gap_minutes: int = 15) -> Dict[str, list]:
         """
