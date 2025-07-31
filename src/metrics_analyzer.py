@@ -1,3 +1,4 @@
+
 """QSO metrics analyzer for contest statistics."""
 
 from typing import List, Dict, Any

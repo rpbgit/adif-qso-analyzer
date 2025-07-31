@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Debug script to analyze session duration calculations and identify zero-duration issues.
@@ -9,11 +10,10 @@ when sessions are being calculated with zero duration.
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
+from adif_parser import ADIFParser
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from adif_parser import ADIFParser
 
 
 def debug_session_calculations(qsos: List[Dict[str, Any]], target_operator: str = None) -> None:

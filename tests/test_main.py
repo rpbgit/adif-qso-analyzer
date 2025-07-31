@@ -1,3 +1,4 @@
+
 """Tests for ADIF parser functionality."""
 
 import pytest
@@ -5,11 +6,10 @@ import tempfile
 import os
 from pathlib import Path
 import sys
+from adif_parser import ADIFParser, QSORecord
 
 # Add src to path for testing
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from adif_parser import ADIFParser, QSORecord
 
 
 class TestQSORecord:

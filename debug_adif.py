@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """Debug script to examine ADIF file contents."""
 

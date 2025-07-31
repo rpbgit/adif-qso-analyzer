@@ -1,13 +1,13 @@
+
 """Tests for metrics analyzer functionality."""
 
 import pytest
 from pathlib import Path
 import sys
+from metrics_analyzer import QSOMetrics
 
 # Add src to path for testing
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from metrics_analyzer import QSOMetrics
 
 
 class TestQSOMetrics:

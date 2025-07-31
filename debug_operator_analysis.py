@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Debug script to analyze specific operator patterns in detail.
@@ -6,11 +7,10 @@ Debug script to analyze specific operator patterns in detail.
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
+from adif_parser import ADIFParser
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from adif_parser import ADIFParser
 
 
 def analyze_operator_patterns(qsos: List[Dict[str, Any]], target_operator: str) -> None:

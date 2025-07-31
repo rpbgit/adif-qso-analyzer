@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Main entry point for the ADIF QSO analyzer.
@@ -7,13 +8,14 @@ import os
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
-import adif_io
+from datetime import datetime
+import glob
+#import adif_io
+from src.adif_parser import ADIFParser
+from src.metrics_analyzer import QSOMetrics
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from src.adif_parser import ADIFParser
-from src.metrics_analyzer import QSOMetrics
 
 
 def normalize_qso_fields(qso: Dict[str, Any]) -> Dict[str, Any]:
@@ -130,7 +132,6 @@ def concatenate_adif_files(input_files: List[str], output_file: str) -> None:
 def main() -> None:
     """Main function for ADIF analysis."""
     # Example usage: python main.py file1.adi file2.adi file3.adi
-    import glob
     input_files = []
     if len(sys.argv) > 1:
         for arg in sys.argv[1:]:
@@ -153,7 +154,6 @@ def main() -> None:
         print("No valid QSO records found in the file.")
         return
     try:
-        from datetime import datetime
         report = QSOMetrics.generate_summary_report(qsos)
         # Prepend header with current date and time
         header = ('+' * 80) + '\n'
