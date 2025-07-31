@@ -1,3 +1,102 @@
+ARRL_DXCC_PREFIXES: dict[str, str] = {
+    # United States & Territories
+    "K": "UNITED STATES",
+    "N": "UNITED STATES",
+    "W": "UNITED STATES",
+    "AA": "UNITED STATES", "AB": "UNITED STATES", "AC": "UNITED STATES", "AD": "UNITED STATES",
+    "AE": "UNITED STATES", "AF": "UNITED STATES", "AG": "UNITED STATES", "AI": "UNITED STATES",
+    "AJ": "UNITED STATES", "AK": "UNITED STATES", "AL": "UNITED STATES", "AM": "UNITED STATES",
+    "AN": "UNITED STATES", "AO": "UNITED STATES", "AP": "UNITED STATES", "AQ": "UNITED STATES",
+    "AR": "UNITED STATES", "AS": "UNITED STATES", "AT": "UNITED STATES", "AU": "UNITED STATES",
+    "AV": "UNITED STATES", "AW": "UNITED STATES", "AX": "UNITED STATES", "AY": "UNITED STATES",
+    "AZ": "UNITED STATES",
+    "KL7": "ALASKA",
+    "KH6": "HAWAII",
+    "KP4": "PUERTO RICO",
+    "KP2": "US VIRGIN ISLANDS",
+    "KH2": "GUAM",
+    "KH8": "AMERICAN SAMOA",
+    "KH0": "MARIANA ISLANDS",
+    # Canada
+    "VE": "CANADA", "VA": "CANADA", "VO": "CANADA", "VY": "CANADA", "CY": "CANADA", "CZ": "CANADA",
+    # Mexico
+    "XE": "MEXICO", "XF": "MEXICO", "XH": "MEXICO",
+    # Japan
+    "JA": "JAPAN", "JE": "JAPAN", "JF": "JAPAN", "JG": "JAPAN", "JH": "JAPAN", "JI": "JAPAN",
+    "JJ": "JAPAN", "JK": "JAPAN", "JL": "JAPAN", "JM": "JAPAN", "JN": "JAPAN", "JO": "JAPAN",
+    "JR": "JAPAN",
+    # England & UK
+    "G": "ENGLAND", "M": "ENGLAND", "2E": "ENGLAND",
+    "GM": "SCOTLAND", "MM": "SCOTLAND", "2M": "SCOTLAND",
+    "GW": "WALES", "MW": "WALES", "2W": "WALES",
+    "GI": "NORTHERN IRELAND", "MI": "NORTHERN IRELAND", "2I": "NORTHERN IRELAND",
+    "GD": "ISLE OF MAN", "MD": "ISLE OF MAN", "2D": "ISLE OF MAN",
+    "GJ": "JERSEY", "MJ": "JERSEY", "2J": "JERSEY",
+    "GU": "GUERNSEY", "MU": "GUERNSEY", "2U": "GUERNSEY",
+    # Australia
+    "VK": "AUSTRALIA",
+    # New Zealand
+    "ZL": "NEW ZEALAND",
+    # Germany
+    "DA": "GERMANY", "DB": "GERMANY", "DC": "GERMANY", "DD": "GERMANY", "DE": "GERMANY",
+    "DF": "GERMANY", "DG": "GERMANY", "DH": "GERMANY", "DJ": "GERMANY", "DK": "GERMANY",
+    "DL": "GERMANY", "DM": "GERMANY", "DN": "GERMANY", "DO": "GERMANY", "DP": "GERMANY",
+    "DQ": "GERMANY", "DR": "GERMANY",
+    # Italy
+    "I": "ITALY", "IA": "ITALY", "IB": "ITALY", "IC": "ITALY", "ID": "ITALY", "IE": "ITALY",
+    "IF": "ITALY", "IG": "ITALY", "IH": "ITALY", "II": "ITALY", "IJ": "ITALY", "IK": "ITALY",
+    "IL": "ITALY", "IM": "ITALY", "IN": "ITALY", "IO": "ITALY", "IP": "ITALY", "IQ": "ITALY",
+    "IR": "ITALY", "IS": "ITALY", "IT": "ITALY", "IU": "ITALY", "IV": "ITALY", "IW": "ITALY",
+    "IZ": "ITALY",
+    # France
+    "F": "FRANCE", "FA": "FRANCE", "FB": "FRANCE", "FC": "FRANCE", "FD": "FRANCE", "FE": "FRANCE",
+    "FF": "FRANCE", "FG": "GUADELOUPE", "FH": "MAYOTTE", "FI": "FRANCE", "FJ": "SAINT BARTHELEMY",
+    "FK": "NEW CALEDONIA", "FL": "FRANCE", "FM": "MARTINIQUE", "FN": "FRANCE", "FO": "FRENCH POLYNESIA",
+    "FP": "SAINT PIERRE & MIQUELON", "FQ": "FRANCE", "FR": "REUNION ISLAND", "FS": "SAINT MARTIN",
+    "FT": "FRANCE", "FU": "FRANCE", "FV": "FRANCE", "FW": "WALLIS & FUTUNA ISLANDS", "FX": "FRANCE",
+    "FY": "FRENCH GUIANA", "FZ": "FRANCE",
+    # Spain
+    "EA": "SPAIN", "EB": "SPAIN", "EC": "SPAIN", "ED": "SPAIN", "EE": "SPAIN", "EF": "SPAIN",
+    "EG": "SPAIN", "EH": "SPAIN",
+    # Russia
+    "RA": "RUSSIA", "RK": "RUSSIA", "RN": "RUSSIA", "RU": "RUSSIA", "RV": "RUSSIA", "RW": "RUSSIA",
+    "RX": "RUSSIA", "RY": "RUSSIA", "RZ": "RUSSIA", "UA": "RUSSIA", "UB": "RUSSIA", "UC": "RUSSIA",
+    "UD": "RUSSIA", "UE": "RUSSIA", "UF": "RUSSIA", "UG": "RUSSIA", "UH": "RUSSIA", "UI": "RUSSIA",
+    # China
+    "BA": "CHINA", "BD": "CHINA", "BG": "CHINA", "BH": "CHINA", "BI": "CHINA", "BL": "CHINA",
+    "BM": "CHINA", "BN": "CHINA", "BO": "CHINA", "BR": "CHINA", "BT": "CHINA", "BY": "CHINA",
+    # Brazil
+    "PY": "BRAZIL", "PP": "BRAZIL", "PQ": "BRAZIL", "PR": "BRAZIL", "PS": "BRAZIL", "PT": "BRAZIL",
+    "PU": "BRAZIL", "PV": "BRAZIL", "PW": "BRAZIL", "ZX": "BRAZIL", "ZY": "BRAZIL", "ZZ": "BRAZIL",
+    # South Africa
+    "ZS": "SOUTH AFRICA", "ZT": "SOUTH AFRICA", "ZU": "SOUTH AFRICA",
+    # Argentina
+    "LU": "ARGENTINA", "LW": "ARGENTINA", "AY": "ARGENTINA", "AZ": "ARGENTINA",
+    # Chile
+    "CE": "CHILE", "CA": "CHILE", "CB": "CHILE", "CC": "CHILE", "CD": "CHILE",
+    # India
+    "VU": "INDIA", "AT": "INDIA", "AU": "INDIA",
+    # More prefixes can be added as needed...
+}
+
+def infer_country_from_call(call: str, prefix_dict: dict[str, str] = ARRL_DXCC_PREFIXES) -> str:
+    """
+    Infer country from callsign prefix using the ARRL DXCC prefix dictionary.
+    Searches for the longest matching prefix in the callsign.
+    Args:
+        call: The callsign string.
+        prefix_dict: Dictionary mapping prefixes to country/entity names.
+    Returns:
+        The country/entity name if found, otherwise "UNKNOWN".
+    """
+    if not call or call.upper() == "UNKNOWN":
+        return "UNKNOWN"
+    call = call.upper()
+    sorted_prefixes = sorted(prefix_dict.keys(), key=len, reverse=True)
+    for prefix in sorted_prefixes:
+        if call.startswith(prefix):
+            return prefix_dict[prefix]
+    return "UNKNOWN"
 
 """QSO metrics analyzer for contest statistics."""
 
@@ -1230,10 +1329,10 @@ class QSOMetrics:
         section = []
         country_counts = {}
         for qso in qsos:
-            country = qso.get('COUNTRY', 'Elbonia')
-            if country is None:
+            call = qso.get('CALL', '')
+            country = infer_country_from_call(call)
+            if not country or country == 'UNKNOWN':
                 country = 'Elbonia'
-            country = str(country).strip().upper()
             country_counts[country] = country_counts.get(country, 0) + 1
         if '' in country_counts:
             country_counts['Elbonia'] = country_counts.get('Elbonia', 0) + country_counts['']
