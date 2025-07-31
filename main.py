@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 Main entry point for the ADIF QSO analyzer.
@@ -10,8 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 import glob
-#import adif_io
-from src.adif_parser import ADIFParser
+import adif_io
 from src.metrics_analyzer import QSOMetrics
 
 # Add src directory to path
@@ -92,7 +90,6 @@ def concatenate_adif_files(input_files: List[str], output_file: str) -> None:
     Normalizes fields for N3FJP compatibility.
     """
     all_qsos = []
-    import adif_io
     read_messages = []
     print("")
     for file in input_files:
@@ -155,11 +152,13 @@ def main() -> None:
         return
     try:
         report = QSOMetrics.generate_summary_report(qsos)
-        # Prepend header with current date and time
+        # Prepend header with current date and time and file read summary
         header = ('+' * 80) + '\n'
         now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         header += f"Report generated: {now_str}\n"
-        report_with_reads = header + "\n" + "\n".join(read_messages) + "\n\n" + report
+        # Add file read summary at the very top
+        file_read_summary = "\n".join(read_messages) + "\n"
+        report_with_reads = header + file_read_summary + "\n" + report
         print(report_with_reads)
         output_report = f"{Path(filename).stem}_analysis.txt"
         with open(output_report, 'w', encoding='utf-8') as f:
